@@ -579,6 +579,16 @@
 (defrestore-sdle-store (proper-list stream)
   (restore-proper-list stream))
 
+;; --------------------------------------------
+;; dumb tests...
+
+(defstruct thing
+  x)
+
+(let* ((obj (make-thing :x '(1 2 3)))
+       (enc (ser:encode obj)))
+  (list (length enc) enc (ser:decode enc))))
+
 |# ;; --- end of Stupid list econimizations --- ;;
 ;; ================================================================
 
@@ -597,6 +607,7 @@
     cell))
 
 (defstore-sdle-store (list cons stream)
+  (warn "SDLE-STORE called on raw LIST.")
   (dump-tree list stream))
 
 (defrestore-sdle-store (tree stream)

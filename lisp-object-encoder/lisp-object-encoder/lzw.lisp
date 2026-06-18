@@ -197,7 +197,7 @@ THE SOFTWARE.
    (make-compressed
     :data (cvt-intvec-to-octets
            (lzw-compress
-            (loenc:encode x)))
+            (ser:encode x)))
     ))
   (:method ((x compressed))
    x))
@@ -208,7 +208,7 @@ THE SOFTWARE.
   (:method ((x compressed))
    ;; decompress a byte vector back to an arbitrary Lisp object
    (decompress
-    (loenc:decode
+    (ser:decode
      (lzw-decompress
       (cvt-octets-to-intvec
        (compressed-data x)))
@@ -232,13 +232,14 @@ THE SOFTWARE.
 (defgeneric zl-compress (x)
   (:method (x)
    (make-zl-compressed
-    :data (simple-compress (loenc:encode x))))
+    :data (simple-compress (ser:encode x))
+    ))
   (:method ((x zl-compressed))
    x))
 
 (defmethod decompress ((x zl-compressed))
   (decompress
-   (loenc:decode
+   (ser:decode
     (simple-decompress
      (zl-compressed-data x)))
    ))

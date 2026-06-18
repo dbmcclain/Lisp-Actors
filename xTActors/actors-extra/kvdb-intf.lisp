@@ -45,14 +45,14 @@
   ;;     (assert (eq norm-key (normalize-key norm-key))))
   (:method (key)
    (normalize-key
-    (loenc:encode key
+    (ser:encode key
                   :max-portability t)))
   (:method ((key uuid:uuid))
    (uuid:uuid-string key))
   #+:LISPWORKS
   (:method ((key vector))
    (if (typep key 'vec-repr:ub8-vector)
-       ;; these typically come from loenc:encode
+       ;; these typically come from ser:encode
        (vec-repr:str (vec-repr:base64 key))
      (call-next-method)))
   (:method ((key character))

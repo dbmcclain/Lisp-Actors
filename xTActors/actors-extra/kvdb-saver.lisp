@@ -60,9 +60,9 @@
                                  :if-exists         :append
                                  :if-does-not-exist :error
                                  :element-type      '(unsigned-byte 8))
-                (loenc:serialize delta f
-                                 :max-portability t
-                                 :self-sync t))
+                (ser:serialize delta f
+                               :max-portability t
+                               :self-sync t))
               (become (save-database-beh path new-db ctrl-tag))
               (send fmt-println "Saved KVDB Deltas: ~S" path)
               (send cust :ok)
@@ -128,8 +128,8 @@
                        :element-type '(unsigned-byte 8))
       (let ((sig (uuid:uuid-to-byte-array +db-id+)))
         (write-sequence sig f)
-        (loenc:serialize sav-db f
-                         :max-portability t)
+        (ser:serialize sav-db f
+                       :max-portability t)
         ))
     #+:LISPWORKS
     (send fmt-println "~A Saved full KVDB: ~S" (hcl:date-string) db-path)
@@ -184,9 +184,9 @@
                                             :if-exists         :append
                                             :if-does-not-exist :error
                                             :element-type      '(unsigned-byte 8))
-                           (loenc:serialize delta f
-                                            :max-portability t
-                                            :self-sync t))
+                           (ser:serialize delta f
+                                          :max-portability t
+                                          :self-sync t))
                          (send me cust :become me new-db)
                          #+:LISPWORKS
                          (send fmt-println "~A Saved KVDB Deltas: ~S" (hcl:date-string) path))
@@ -312,7 +312,7 @@
                    (try-deserialize-db (f)
                      ;; read in the core of the database
                      (handler-case
-                         (let ((db  (loenc:deserialize f)))
+                         (let ((db  (ser:deserialize f)))
                            (db-find db 'version) ;; try to tickle error
                            db)
                        (error ()
@@ -334,7 +334,7 @@
                      ;; a list of removals, additions, and changes.
                      (handler-case
                          (let ((reader (self-sync:make-reader f)))
-                           (loop for ans = (loenc:deserialize f :self-sync reader)
+                           (loop for ans = (ser:deserialize f :self-sync reader)
                                  until   (eq ans f)
                                  finally (normal-exit db)
                                  do

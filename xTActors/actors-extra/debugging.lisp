@@ -12,7 +12,7 @@
       (truncate usec 1000000)
     (multiple-value-bind (ss mm hh d m y)
         (decode-universal-time utc 0)
-      (format nil "~4,'0D/~{~2,'0D~^/~}t~{~2,'0D~^\:~}.~6,'0DU"
+      (format nil "~4,'0D/~{~2,'0D~^/~}T~{~2,'0D~^\:~}.~6,'0DU"
               y (list m d) (list hh mm ss) frac))))
   
 (defun logger-timestamp ()

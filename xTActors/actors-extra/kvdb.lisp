@@ -54,11 +54,13 @@
         ((error (lambda (e)
                   (send-to-pool cust :error e))
                 ))
-      (let* ((key   (ino-key path)) ;; might trigger error
+      (let* ((_     (ensure-file-exists path))
+             (key   (ino-key path)) ;; might trigger error
              (quad  (and key
                          (find key open-dbs
                                :key  #'open-database-ino-key
                                :test #'string-equal))))
+        (declare (ignore _))
         (if quad
               (send cust (open-database-kvdb-actor quad))
           ;; else - new Open
@@ -119,9 +121,13 @@
                    (merge-pathnames "Library/Application Support/"
                                     (format nil "~A/" (sb-ext:posix-getenv "HOME")))
                    ))
-
-(defun fut-kvdb-handler (tag &optional msgs)
+#|
+(ensure-file-exists *db-path*)                      
+|#
+(defun fut-kvdb-handler (tag path &optional msgs)
   (alambda
+   ((atag :error _) / (eq tag atag)
+    (become (lazy-fut-kvdb-handler-beh path)))
    ((atag kvdb) / (eq tag atag)
     (become (fwd-beh kvdb))
     (send-all-to kvdb msgs))
@@ -129,19 +135,17 @@
     (become (fut-kvdb-handler tag (cons msg msgs))))
    ))
 
-(defun lazy-fut-kvdb-handler (path)
-  (create
-   (lambda* msg
-     (let ((tag (tag self)))
-       (send kvdb-orchestrator tag :make-kvdb path)
-       (become (fut-kvdb-handler tag (list msg)))
-       ))
-   ))
+(defun lazy-fut-kvdb-handler-beh (path)
+  (lambda* msg
+    (let ((tag (tag self)))
+      (send kvdb-orchestrator tag :make-kvdb path)
+      (become (fut-kvdb-handler tag path (list msg)))
+      )))
 
 (deflex* kvdb
   ;; The main Actor for just the goof-around KVDB. Make your own for
   ;; others.
-  (lazy-fut-kvdb-handler *db-path*))
+  (create (lazy-fut-kvdb-handler-beh *db-path*)))
 
 ;; -----------------------------------------------------------
 ;; Utility Functions
@@ -172,7 +176,7 @@
 
 (defun* lw-start-kvdb _
   (setf kvdb-orchestrator  (create (kvdb-orchestrator-beh)))
-  (setf kvdb               (lazy-fut-kvdb-handler *db-path*)))
+  (setf kvdb               (create (lazy-fut-kvdb-handler-beh *db-path*))))
 
 (defun* lw-kill-kvdb _
   ;; (princ "Allowing KVDB to sync before shutting down.")
@@ -316,9 +320,9 @@
                      :element-type '(unsigned-byte 8))
   (dotimes (ix 10)
     (let ((str (format nil "This is test ~D!" ix)))
-      (loenc:serialize str f
-                       :max-portability t
-                       :self-sync t))))
+      (ser:serialize str f
+                     :max-portability t
+                     :self-sync t))))
 
 ;; Now go ahead and trash the file - see that we skip the damaged
 ;; records, often two adjacent records, but manage to pick up the
@@ -333,7 +337,7 @@
                      :if-does-not-exist :error
                      :element-type '(unsigned-byte 8))
   (let ((reader (self-sync:make-reader f)))
-    (loop for ans = (loenc:deserialize f :self-sync reader)
+    (loop for ans = (ser:deserialize f :self-sync reader)
             until (eq ans f)
             collect ans)))
 

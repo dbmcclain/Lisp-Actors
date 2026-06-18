@@ -42,7 +42,8 @@ THE SOFTWARE.
                 (:file "unshared-list")
                 (:file "safe-marshaling")
                 (:file "dump")
-                (:file "serializer"))
+                (:file "serializer")
+                (:file "serializables"))
   :SERIAL T
   :depends-on   ("com.ral.self-sync"
                  "com.ral.ubyte-streams"

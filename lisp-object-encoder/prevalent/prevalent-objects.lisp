@@ -157,11 +157,11 @@ inherit from this class."))
 
 ;; ------------------------------------------------------------
 
-(defconstant +assoc-oid-code+           (register-code 111 'object-association))
-(defconstant +object-proxy-code+        (register-code 112 'object-proxy))
-(defconstant +update-spec-code+         (register-code 113 'update-spec))
-(defconstant +remove-item-code+         (register-code 114 'remove-item-spec))
-(defconstant +makunbound-spec-code+     (register-code 115 'makunbound-spec))
+(defconstant +assoc-oid-code+           (register-code 100 'object-association))
+(defconstant +object-proxy-code+        (register-code 101 'object-proxy))
+(defconstant +update-spec-code+         (register-code 102 'update-spec))
+(defconstant +remove-item-code+         (register-code 103 'remove-item-spec))
+(defconstant +makunbound-spec-code+     (register-code 104 'makunbound-spec))
 
 ;; ------------------------------------------------------------
 ;; object-proxy serialization -- occurs when serializing a persitent object

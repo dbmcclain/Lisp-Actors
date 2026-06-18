@@ -44,7 +44,6 @@
    #:marshal-encoder
    #:marshal-decoder
    #:fail-silent-marshal-decoder
-   #:fail-silent-marshal-decoder-loenc ;; for now...
    #:simple-compress
    #:simple-uncompress
    #:marshal-compressor

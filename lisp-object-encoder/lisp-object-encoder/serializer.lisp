@@ -3,18 +3,6 @@
 ;; DM/RAL  2026/06/15T23:25:41U
 ;; ----------------------------------
 
-(defpackage #:serializer
-  (:use #:common-lisp)
-  (:export
-   #:encode
-   #:decode
-   #:serialize
-   #:deserialize
-
-   #:make-serializable
-   #:deserialize-type
-   ))
-
 (in-package #:serializer)
 
 ;; --------------------------------------------
@@ -197,6 +185,8 @@ removed from the preprocessed encoding.
    nil)
   (:method ((x character))
    nil)
+  (:method ((x sets:empty))
+   nil)
   (:method (x)  ;; any others?
    t))
 
@@ -247,13 +237,22 @@ removed from the preprocessed encoding.
         (alts-table (make-hash-table :test #'eq))
         (refctr 0))
 
-    ;; First stage - form a proper deep copy of the tree, taking into
-    ;; account structure sharing, and convert pointers-to-shared-nodes
+    ;; Pass #1 - form a proper deep copy of the tree, taking into
+    ;; account structure sharing, and convert pointers to shared nodes
     ;; into REFs.
+    ;;
+    ;; We also turn sharable structs into USER-SER objects, so we can
+    ;; share object internals, and reduce the space cost of
+    ;; serializing.
     ;;
     ;; This removes both sharing and cycles. The tree becomes a DAG.
     ;; Every node in this DAG has only one direct reference to itself
     ;; from somewhere higher up.
+    ;;
+    ;; We can only discern, in this pass, a shared reference after
+    ;; seeing the second reference to an object already seen. We have
+    ;; to rescan, in Pass #2, to find the first reference again, and
+    ;; turn it into a DEF node.
     
     (um:nlet iter ((xq  (list tree))
                    (ans nil))
@@ -265,13 +264,14 @@ removed from the preprocessed encoding.
           (if (opcode-p obj)
               (cond
                ((new-cons-p obj)
-                (destructuring-bind (new-cdr new-car old-obj . tl) ans
-                  (let ((new (cons new-car new-cdr)))
-                    (setf (gethash new alts-table) old-obj)
-                    (go-iter (cdr xq) (cons new tl))
-                    )))
+                (destructuring-bind (new-cdr new-car new . tl) ans
+                  (setf (car new) new-car
+                        (cdr new) new-cdr)
+                  (go-iter (cdr xq)
+                           (cons new tl))
+                  ))
                ((new-iter-p obj)
-                (destructuring-bind (elt vec ix limit old-obj . tl) ans
+                (destructuring-bind (elt vec ix limit . tl) ans
                   (setf (aref vec ix) elt)
                   (incf ix)
                   (cond ((< ix limit)
@@ -280,57 +280,56 @@ removed from the preprocessed encoding.
                                         xq)
                                   (cdr ans)))
                         (t
-                         (setf (gethash vec alts-table) old-obj)
-                         (go-iter (cdr xq) (cons vec tl)))
+                         (go-iter (cdr xq)
+                                  (cons vec tl)))
                         )))
                ((new-user-ser-p obj)
-                (destructuring-bind (dat typ old-obj . tl) ans
-                  (let ((new  (make-user-ser
-                               :type typ
-                               :data dat)))
-                    (setf (gethash new alts-table) old-obj)
-                    (go-iter (cdr xq)
-                             (cons new tl))
-                    ))))
+                (destructuring-bind (dat typ new . tl) ans
+                  (setf (user-ser-type new) typ
+                        (user-ser-data new) dat)
+                  (go-iter (cdr xq)
+                           (cons new tl))
+                  )))
             ;; else data items
             (let* ((share?  (sharable-p obj))
-                   (ct  (if share? 
-                            (incf (gethash obj ref-counts 0))
-                          1))
-                   (lbl (when share?
-                          (gethash obj ref-labels))))
+                   (ct      (if share? 
+                                (incf (gethash obj ref-counts 0))
+                              1)))
               (cond
-               (lbl
-                (go-iter (cdr xq) (cons (make-ref :ix lbl) ans)))
-               ((> ct 1)
-                (let ((lbl (incf refctr))
-                      (alt (gethash obj alts-table obj)))
-                  (setf (gethash alt ref-labels) lbl)
-                  (go-iter (cdr xq) (cons (make-ref :ix lbl) ans))
-                  ))
+               ((> ct 2)
+                (go-iter (cdr xq)
+                         (cons (make-ref :ix (gethash obj ref-labels))
+                               ans)))
+               ((= ct 2)
+                (go-iter (cdr xq)
+                         (cons (make-ref :ix (setf (gethash obj ref-labels) (incf refctr)))
+                               ans)))
                ((consp obj)
-                (go-iter (list* (car obj)
-                                (cdr obj)
-                                *new-cons*
-                                (cdr xq))
-                         (cons obj ans)))
+                (let ((new  (list nil)))
+                  (setf (gethash new alts-table) obj)
+                  (go-iter (list* (car obj)
+                                  (cdr obj)
+                                  *new-cons*
+                                  (cdr xq))
+                           (cons new ans))))
                ((gp-vector-p obj)
-                (go-iter (list* (aref obj 0)
-                                *new-iter*
-                                (cdr xq))
-                         (list* (copy-seq obj)
-                                0 (length obj)
-                                obj
-                                ans)))
+                (let ((new  (copy-seq obj)))
+                  (setf (gethash new alts-table) obj)
+                  (go-iter (list* (aref obj 0)
+                                  *new-iter*
+                                  (cdr xq))
+                           (list* new
+                                  0 (length obj)
+                                  ans))
+                  ))
 
                ((encoded-p obj)
                 ;; oops!
                 (error "You cannot encode an already-encoded tree.")
                 ;;
                 ;; And why not?
-                ;;
-                ;; Answer:
                 
+                ;; Answer:
                 ;; You would be mixing a collection of REFs and DEFs
                 ;; from entirely different encoding epochs, each of
                 ;; which used their own local integer numbering of
@@ -343,9 +342,10 @@ removed from the preprocessed encoding.
                 ;; Without resorting to timestamped REF's and DEF's we
                 ;; would be at a complete loss.
                 ;;
-                ;; The best solution, if you must pass along an already
-                ;; encoded tree, is to first convert that encoding to a
-                ;; byte sequence and pass along that byte vector.
+                ;; The best solution, if you must pass along an
+                ;; already encoded tree, is to first convert that
+                ;; encoding to a byte vector and pass that along. It
+                ;; becomes a single element in what follows.
                 ;;
                 ;; ... or maybe we should consider using UUIDs to
                 ;; number the refs and defs?
@@ -355,30 +355,31 @@ removed from the preprocessed encoding.
                 (let ((bs-obj (loenc:before-store obj)))
                   (multiple-value-bind (typ data)
                       (make-serializable bs-obj)
-                    (if typ
-                        (go-iter (list* typ
-                                        data
-                                        *new-user-ser*
-                                        (cdr xq))
-                                 (cons obj ans))
-                      (go-iter (cdr xq)
-                               (cons bs-obj ans))
-                      ))))
+                    (cond (typ
+                           (let ((new (make-user-ser)))
+                             (setf (gethash new alts-table) obj)
+                             (go-iter (list* typ
+                                             data
+                                             *new-user-ser*
+                                             (cdr xq))
+                                      (cons new ans))
+                             ))
+                          (t
+                           (unless (eq obj bs-obj)
+                             (setf (gethash bs-obj alts-table) obj))
+                           (go-iter (cdr xq)
+                                    (cons bs-obj ans)))
+                          ))))
                )))
           )))
     ))
 
 (defun label-tree-with-shared-nodes (tree ref-labels alts-table)
   
-  ;; 2nd pass... any references were invented
-  ;; because we saw a repeated item. Could not
-  ;; know it was repeated unless we had seen it
-  ;; once before.
-  ;;
-  ;; When we made the first REF, we also flagged
-  ;; that item to become a DEF. So rescan the
-  ;; newly copied tree and convert the fist
-  ;; appearances into DEFs.
+  ;; 2nd pass... Looking for DEF's. REF nodes were created because we
+  ;; saw a repeated reference. We could not know that it was repeated
+  ;; unless we had seen it once before. That first look should have
+  ;; been converted to a DEF. Let's fix that...
   
   (um:nlet iter ((xq  (list tree))
                  (ans nil))
@@ -426,10 +427,10 @@ removed from the preprocessed encoding.
                           tl))
                 )))
           ;; else data items
-          (let* ((alt  (when obj  ;; special for NIL
-                         (gethash obj alts-table obj)))
-                 (def  (when obj  ;; special for NIL
-                         (gethash alt ref-labels))))
+          (let* ((share?  (sharable-p obj))
+                 (def     (when share?  ;; special for NIL
+                            (let ((alt (gethash obj alts-table obj)))
+                              (gethash alt ref-labels)))))
             (cond
              ((consp obj)
               (go-iter (list* (car obj)
@@ -452,17 +453,19 @@ removed from the preprocessed encoding.
                               *new-user-ser*
                               (cdr xq))
                        (list* obj def ans)))
-             (def
-              (go-iter (cdr xq)
-                       (cons (make-def :ix def :obj obj) ans)))
              (t
-              (go-iter (cdr xq) (cons obj ans)))
+              (go-iter (cdr xq)
+                       (cons
+                        (if def
+                            (make-def :ix def :obj obj)
+                          obj)
+                        ans)))
              )))
         ))))
 
 (defun vector-linearize-tree (tree)
   
-  ;; Final stage - convert all lists into vector structs.
+  ;; 3rd and Final stage - convert all lists into vector structs.
   ;; Proper lists become VEF objects.
   ;; Improper lists become VEF* objects.
 
@@ -491,12 +494,14 @@ removed from the preprocessed encoding.
                                       xq)
                                 (cdr ans)))
                       (t
-                       (go-iter (cdr xq) (cons vec tl)))
+                       (go-iter (cdr xq)
+                                (cons vec tl)))
                       )))
              ((new-def-p obj)
               (destructuring-bind (new-val def . tl) ans
                 (setf (def-obj def) new-val)
-                (go-iter (cdr xq) (cons def tl))
+                (go-iter (cdr xq)
+                         (cons def tl))
                 ))
              ((new-user-ser-p obj)
               (destructuring-bind (dat typ struct . tl) ans
@@ -541,7 +546,8 @@ removed from the preprocessed encoding.
                             (cdr xq))
                      (cons obj ans)))
            (t
-            (go-iter (cdr xq) (cons obj ans)))
+            (go-iter (cdr xq)
+                     (cons obj ans)))
            ))
         ))))
 
@@ -556,25 +562,27 @@ removed from the preprocessed encoding.
 ;; --------------------------------------------
 
 (defun copy-tree-reflating-vectors (tree)
-  (let ((reftbl (make-hash-table)))
-    ;; First pass - reinflate the VEF & VEF* objects to
-    ;; proper and improper lists, then apply the
-    ;; process to each of their elements.
+  (let ((def-table (make-hash-table)))
+    
+    ;; First pass - reinflate the VEF & VEF* objects to proper and
+    ;; improper lists, and look for DEFs, recording them in the
+    ;; def-table.
     ;;
-    ;; Along the way we also record the DEFs into the
-    ;; reftbl and replace them with their reinflated
-    ;; def object.
+    ;; We are supposed to be cycle free. So list reflation should
+    ;; terminate.
+
     (um:nlet iter ((xq  (list (encoded-tree-top tree)))
                    (ans nil))
       (if (endp xq)
-          (values (car ans) reftbl)
+          (values (car ans) def-table)
         (let ((obj  (car xq)))
           (if (opcode-p obj)
               (cond
                ((new-list-p obj)
                 (destructuring-bind (vec . tl) ans
                   (go-iter (cdr xq)
-                           (cons (coerce vec 'list) tl))
+                           (cons (coerce vec 'list)
+                                 tl))
                   ))                               
                ((new-list*-p obj)
                 (destructuring-bind (vec nlast . tl) ans
@@ -598,12 +606,15 @@ removed from the preprocessed encoding.
                          ))))
                ((new-def-p obj)
                 (destructuring-bind (val ix . tl) ans
-                  (setf (gethash ix reftbl) val)
-                  (go-iter (cdr xq) (cons val tl))
+                  (setf (gethash ix def-table) val)
+                  (go-iter (cdr xq)
+                           (cons val tl))
                   ))
                ((new-user-ser-p obj)
                 (destructuring-bind (new-dat new-typ . tl) ans
-                  (let ((new  (make-user-ser :type new-typ :data new-dat)))
+                  (let ((new  (make-user-ser
+                               :type new-typ
+                               :data new-dat)))
                     (go-iter (cdr xq)
                              (cons new tl))
                     ))))
@@ -646,92 +657,200 @@ removed from the preprocessed encoding.
                               (cdr xq))
                        ans))
              (t
-              (go-iter (cdr xq) (cons obj ans)))
+              (go-iter (cdr xq)
+                       (cons obj ans)))
              ))
           ))
       )))
 
-(defun resolve-shared-node-references (tree reftbl)
-  ;; In the second pass we replace all the REF
-  ;; objects with the object referenced from the
-  ;; reftbl filled in from pass #1.
-  (um:nlet iter ((xq  (list tree))
-                 (ans nil))
-    (if (endp xq)
-        (car ans)
-      (let ((obj  (car xq)))
-        (if (opcode-p obj)
-            (cond
-             ((new-cons-p obj)
-              (destructuring-bind (new-car new-cdr cell . tl) ans
-                (setf (car cell) new-car
-                      (cdr cell) new-cdr)
-                (go-iter (cdr xq) (cons cell tl))
-                ))
-             ((new-iter-p obj)
-              (destructuring-bind (elt vec ix limit . tl) ans
-                (setf (aref vec ix) elt)
-                (incf ix)
-                (cond ((< ix limit)
-                       (setf (third ans) ix)
-                       (go-iter (cons (aref vec ix)
-                                      xq)
-                                (cdr ans)))
-                      (t
-                       (go-iter (cdr xq)
-                                (cons vec tl)))
-                      )))
-             ((new-user-ser-p obj)
-              (destructuring-bind (new-dat new-typ . tl) ans
+(defun resolve-shared-node-references (tree def-table)
+  ;; Pass #2 - In the second pass we replace all the REF objects with
+  ;; the object referenced from the def-table filled in from Pass #1.
+  (let ((ref-table    (make-hash-table :test #'eq))
+        (places-table (make-hash-table :test #'eq)))
+    (um:nlet iter ((xq  (list tree))
+                   (ans nil))
+      (if (endp xq)
+          (values (car ans) places-table)
+        (let ((obj  (car xq)))
+          (if (opcode-p obj)
+              (cond
+               ((new-cons-p obj)
+                (destructuring-bind (new-cdr new-car cell . tl) ans
+                  (setf (car cell) new-car
+                        (cdr cell) new-cdr)
+                  (when (user-ser-p new-car)
+                    (push (lambda (obj)
+                            (setf (car cell) obj))
+                          (gethash new-car places-table)))
+                  (when (user-ser-p new-cdr)
+                    (push (lambda (obj)
+                            (setf (cdr cell) obj))
+                          (gethash new-cdr places-table)))
+                  (go-iter (cdr xq)
+                           (cons cell tl))
+                  ))
+               ((new-iter-p obj)
+                (destructuring-bind (elt vec ix limit . tl) ans
+                  (setf (aref vec ix) elt)
+                  (when (user-ser-p elt)
+                    (push (let ((ix ix))
+                            (lambda (obj)
+                              (setf (aref vec ix) obj)))
+                          (gethash elt places-table)))
+                  (incf ix)
+                  (cond ((< ix limit)
+                         (setf (third ans) ix)
+                         (go-iter (cons (aref vec ix)
+                                        xq)
+                                  (cdr ans)))
+                        (t
+                         (go-iter (cdr xq)
+                                  (cons vec tl)))
+                        )))
+               ((new-user-ser-p obj)
+                (destructuring-bind (new-dat new-typ new . tl) ans
+                  (setf (user-ser-type new) new-typ
+                        (user-ser-data new) new-dat)
+                  (when (user-ser-p new-dat)
+                    (push (lambda (obj)
+                            (setf (user-ser-data new) obj))
+                          (gethash new-dat places-table)))
+                  (go-iter (cdr xq)
+                           (cons new tl))
+                  )))
+            ;; else - data items
+            (let* ((share?  (sharable-p obj))
+                   (ct      (if share?
+                                (incf (gethash obj ref-table 0))
+                              1)))
+              (cond
+               ((> ct 1)
                 (go-iter (cdr xq)
-                         (cons
-                          (loenc:after-restore
-                           (deserialize-type new-typ new-dat))
-                          tl))
-                )))
-          ;; else - data items
-          (flet ((anti-cycling (obj)
-                   (when (find obj ans :test #'eq)
-                     (error "Forbidden data cycle detected."))))
-            (cond
-             ((consp obj)
-              (anti-cycling obj)
-              (go-iter (list* (cdr obj)
-                              (car obj)
-                              *new-cons*
-                              (cdr xq))
-                       (cons obj ans)))
-             ((gp-vector-p obj)
-              (anti-cycling obj)
-              (go-iter (list* (aref obj 0)
-                              *new-iter*
-                              (cdr xq))
-                       (list* obj
-                              0 (length obj)
-                              ans)))
-             ((ref-p obj)
-              (go-iter (cdr xq)
-                       (cons (gethash (ref-ix obj) reftbl)
-                             ans)))
-             ((user-ser-p obj)
-              (go-iter (list* (user-ser-type obj)
-                              (user-ser-data obj)
-                              *new-user-ser*
-                              (cdr xq))
-                       ans))
-             (t
-              (go-iter (cdr xq)
-                       (cons (loenc:after-restore obj)
-                             ans)))
-             ))
-          )))))
+                         (cons obj ans)))
+               
+               ((consp obj)
+                (go-iter (list* (car obj)
+                                (cdr obj)
+                                *new-cons*
+                                (cdr xq))
+                         (cons obj ans)))
 
+               ((gp-vector-p obj)
+                (go-iter (list* (aref obj 0)
+                                *new-iter*
+                                (cdr xq))
+                         (list* obj
+                                0 (length obj)
+                                ans)))
+               ((ref-p obj)
+                (let ((new  (gethash (ref-ix obj) def-table)))
+                  (go-iter (cons new
+                                 (cdr xq))
+                           ans)
+                  ))
+
+               ((user-ser-p obj)
+                (go-iter (list* (user-ser-type obj)
+                                (user-ser-data obj)
+                                *new-user-ser*
+                                (cdr xq))
+                         (cons obj ans)))
+               (t
+                (let ((ar-obj  (loenc:after-restore obj)))
+                  (if (eq ar-obj obj)
+                      (go-iter (cdr xq)
+                               (cons obj ans))
+                    (go-iter (cons obj
+                                   (cdr xq))
+                             ans)
+                    )))
+               ))
+            ))))))
+
+(defun chk-enc (obj)
+  (if (encoded-p obj)
+      (error "Should not be an ENCODED value: ~S" obj)
+    obj))
+
+(defun resolve-user-structs (tree places-table)
+  (let ((reftbl    (make-hash-table :test #'eq)))
+    (um:nlet iter ((xq  (list tree))
+                   (ans nil))
+      (if (endp xq)
+          (chk-enc (car ans))
+        (let ((obj  (car xq)))
+          (if (opcode-p obj)
+              (cond
+               ((new-cons-p obj)
+                (destructuring-bind (new-cdr new-car cell . tl) ans
+                  (setf (car cell) new-car
+                        (cdr cell) new-cdr)
+                  (go-iter (cdr xq) (cons cell tl))
+                  ))
+               ((new-iter-p obj)
+                (destructuring-bind (elt vec ix limit . tl) ans
+                  (setf (aref vec ix) elt)
+                  (incf ix)
+                  (cond ((< ix limit)
+                         (setf (third ans) ix)
+                         (go-iter (cons (aref vec ix)
+                                        xq)
+                                  (cdr ans)))
+                        (t
+                         (go-iter (cdr xq)
+                                  (cons vec tl)))
+                        )))
+               ((new-user-ser-p obj)
+                (destructuring-bind (new-dat new-typ struct . tl) ans
+                  (let ((new    (loenc:after-restore
+                                 (deserialize-type new-typ new-dat))))
+                    (map nil (um:rcurry #'funcall new) (gethash struct places-table))
+                    (go-iter (cdr xq)
+                             (cons new tl))
+                    ))))
+            ;; else - data items
+            (let* ((share?  (sharable-p obj))
+                   (ct      (if share?
+                                (incf (gethash obj reftbl 0))
+                              1)))
+              (if (> ct 1)
+                  (go-iter (cdr xq)
+                           (cons obj ans))
+                (cond
+                 ((consp obj)
+                  (go-iter (list* (car obj)
+                                  (cdr obj)
+                                  *new-cons*
+                                  (cdr xq))
+                           (cons obj ans)))
+                 ((gp-vector-p obj)
+                  (go-iter (list* (aref obj 0)
+                                  *new-iter*
+                                  (cdr xq))
+                           (list* obj
+                                  0 (length obj)
+                                  ans)))
+                 ((user-ser-p obj)
+                  (go-iter (list* (user-ser-type obj)
+                                  (user-ser-data obj)
+                                  *new-user-ser*
+                                  (cdr xq))
+                           (cons obj ans)))
+                 (t
+                  (go-iter (cdr xq)
+                           (cons obj ans)))
+                 )))
+            ))))))
+  
 (defun nr-reflate-tree (tree)
   ;; Non-destructive decoding
-  (multiple-value-bind (new-tree reftbl)
+  (multiple-value-bind (new-tree def-table)
       (copy-tree-reflating-vectors tree)
-    (resolve-shared-node-references new-tree reftbl)
-    ))
+    (multiple-value-bind (res-tree places-table)
+        (resolve-shared-node-references new-tree def-table)
+      (resolve-user-structs res-tree places-table)
+      )))
 
 ;; --------------------------------------------
 
@@ -743,7 +862,10 @@ removed from the preprocessed encoding.
 (let ((lst  (list* 'a 'b 'c 'd)))
   (setf (cdr (last lst)) (cdr lst))
   (nr-linearize-tree lst))
-                      
+
+(setf *print-circle* t)
+(setf *print-level* 10)
+
 (nr-reflate-tree (nr-linearize-tree '(a b c d)))
 (nr-reflate-tree (nr-linearize-tree '(a b c . d)))
 (let ((sub '(a b c)))
@@ -780,63 +902,33 @@ removed from the preprocessed encoding.
   )
 |#
 ;; --------------------------------------------
-;; UUID's
-
-(defmethod make-serializable ((obj uuid:uuid))
-  (values :uuid
-          (uuid:uuid-to-byte-array obj)))
-
-(defmethod deserialize-type ((typ (eql :uuid)) dat)
-  (uuid:byte-array-to-uuid dat))
-
-;; --------------------------------------------
-;; HASH-TABLES
-
-(defmethod make-serializable ((ht hash-table))
-  (values :hash-table
-          (list (hash-table-rehash-size ht)
-                (hash-table-rehash-threshold ht)
-                (hash-table-size ht)
-                (hash-table-test ht)
-                (loop for key being the hash-keys of ht
-                        using (hash-value value)
-                      collect
-                      (cons key value))
-                )))
-
-(defmethod deserialize-type ((type (eql :HASH-TABLE)) data)
-  (destructuring-bind (rehash-size rehash-threshold size test kvs) data
-    (let ((ht (make-hash-table :test test
-                               :rehash-size rehash-size
-                               :rehash-threshold rehash-threshold
-                               :size size)))
-      (loop for (key . value) in kvs do
-            (setf (gethash key ht) value))
-      ht)))
-
-;; --------------------------------------------
-#|
-(let ((id #/uuid/{72C0839E-6872-11F1-8592-05C994CCFF01}))
-  (nr-reflate-tree (nr-linearize-tree id))
-  ;; (nr-linearize-tree id)
-  ;; (nr-linearize-tree (nr-linearize-tree id))
-  )
-|#
-
-;; --------------------------------------------
 
 (defun encode (obj &rest loenc-args)
-  (apply #'loenc:encode (nr-linearize-tree obj) loenc-args))
+  (apply #'ex-encode (nr-linearize-tree obj) loenc-args))
+
+(defun try-reflate (dec)
+  (if (encoded-tree-p dec)
+      (nr-reflate-tree dec)
+    (let ((err-str  "SER:DECODE was called on old LOENC:ENCODE'd data"))
+      (if cl-user::*break-on-reflate-error*
+          (break "Break: ~A" err-str)
+        (warn err-str))
+      dec)
+    ))
 
 (defun decode (enc &rest loenc-args)
-  (nr-reflate-tree (apply #'loenc:decode enc loenc-args)))
+  (try-reflate (apply #'ex-decode enc loenc-args)))
 
 
 (defun serialize (obj stream &rest loenc-args)
-  (apply #'loenc:serialize (nr-linearize-tree obj) stream loenc-args))
+  (apply #'ex-serialize (nr-linearize-tree obj) stream loenc-args))
   
 (defun deserialize (stream &rest loenc-args)
-  (nr-reflate-tree (apply #'loenc:deserialize stream loenc-args)))
+  (let ((dec (apply #'ex-deserialize stream loenc-args)))
+    (if (eq dec stream)  ;; loenc:ex-deserialize produces STREAM for EOF.
+        dec
+      (try-reflate dec))
+    ))
 
 ;; --------------------------------------------
 
@@ -924,4 +1016,23 @@ removed from the preprocessed encoding.
         (length (loenc:encode (list str)))
         enc
         (decode enc)))
+|#
+;; --------------------------------------------
+#|
+(defstruct thing
+  a b c d)
+
+(let* ((ref  (uuid:make-v1-uuid))
+       (lst  '(a b c))
+       (x (list (make-thing
+                 :a #(1 2 3 4)
+                 :b ref
+                 :c 301
+                 :d lst)
+                (make-thing
+                 :a '(4 5 6)
+                 :b ref
+                 :c 500
+                 :d lst))))
+  (decode (encode x)))
 |#

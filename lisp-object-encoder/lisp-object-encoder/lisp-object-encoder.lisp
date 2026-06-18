@@ -184,7 +184,7 @@ Encrypted data is marked as such by making the prefix count odd."
 
 ;; -------------------------------------------
 
-(defun encode (msg &rest args
+(defun ex-encode (msg &rest args
                    &key
                    self-sync
                    use-magic
@@ -202,7 +202,7 @@ Encrypted data is marked as such by making the prefix count odd."
   "Serialize a message to a buffer of unsigned bytes."
   ;; preflen will be one of 1,2,4,8,16 or 0
   (if self-sync
-      (self-sync:encode (apply #'encode msg
+      (self-sync:encode (apply #'ex-encode msg
                                :self-sync nil
                                args))
     (let* ((preflen (or (normalize-prefix-length prefix-length) 0))
@@ -245,7 +245,7 @@ Encrypted data is marked as such by making the prefix count odd."
 
 ;; -------------------------------------------
 
-(defun serialize (msg stream &rest args)
+(defun ex-serialize (msg stream &rest args)
   "Serialize a message to the output stream (usually a socket output port). The
 message is encoded as a long string of unsigned bytes, or base-chars, with a
 length prefix in network byte-order (big-endian). The prefix count does not include
@@ -253,7 +253,7 @@ the length of itself.
 
 Once the message and its prefix count is encoded in the buffer we peform a single
 I/O call to write the entire stream to the output port."
-  (write-sequence (apply #'encode msg args) stream))
+  (write-sequence (apply #'ex-encode msg args) stream))
 
 ;; ---------------------------------------------------------------
 ;; ---------------------------------------------------------------
@@ -352,7 +352,7 @@ transmitted in network byte-order (big-endian)."
 
 ;; -----------------------------------------------------------------------------
 
-(defun deserialize (stream &rest args
+(defun ex-deserialize (stream &rest args
                            &key
                            self-sync
                            use-magic
@@ -380,7 +380,7 @@ recycling that buffer for another use later. This is an attempt to avoid generat
                (unless (functionp self-sync)
                  (file-position stream (1- (file-position stream))))
                (ubyte-streams:with-input-from-ubyte-stream (sin seq)
-                 (apply #'deserialize sin :self-sync nil args)))
+                 (apply #'ex-deserialize sin :self-sync nil args)))
               ))
     ;; else
     (let ((preflen (normalize-prefix-length prefix-length))
@@ -399,13 +399,13 @@ recycling that buffer for another use later. This is an attempt to avoid generat
 
 ;; -----------------------------------------------------------------------------
 
-(defun decode (arr &rest args
+(defun ex-decode (arr &rest args
                    &key
                    (start 0)
                    (reader 'xaref)
                    &allow-other-keys)
   (ubstream:with-input-from-ubyte-stream (s arr :start start :reader reader)
-    (apply #'deserialize s args)))
+    (apply #'ex-deserialize s args)))
 
 ;; -----------------------------------------------------------------------------
 
