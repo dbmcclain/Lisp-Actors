@@ -211,13 +211,17 @@ removed from the preprocessed encoding.
 ;; We operate an input execution queue and a result stack.
 ;; Basically a ZAMS machine. Take operands from a queue, and push
 ;; results onto a stack.
-
+;;
+;; Opcodes can mean whatever the moment calls for. But there are some
+;; oft-repeated patterns of use that can be considered default
+;; actions. We put those actions in the ZAMS operations below.
+;;
 ;; --------------------------------------------
 ;; By making them structs we can use OPCODE-P to test their general
 ;; category as opcodes
 
 (defstruct opcode
-  id fn)
+  id fn)  ;; ID is just for debugging so we can identify what is on stack.
 
 (defmacro opcode (name &optional fn)
   `(defparameter ,name
@@ -241,18 +245,23 @@ removed from the preprocessed encoding.
 
 ;; --------------------------------------------
 ;; Constant stack space routines (NR-) by using a ZAMs
+;;
+;; Handlers all return 2 values: the new %OPS and new %STK.
 
 (defvar *patch-table*  nil) ;; holds a hash-table when exploring for references to structured objects
 (defvar *fixup-table*  nil) ;; holds the hash-table of places during a final backpatching decode pass
 
 (defun zams-ret  (ops tl obj def)
-  (values
-   ops
-   (cons
-    (if def
-        (make-def :ix def :obj obj)
-      obj)
-    tl)
+  ;; A standard exit routine shared by op handlers
+  ;; when they finish reconstruction.
+  ;; OPS represents the new %OPS queue
+  ;; TL represents a trimmed %STK to be augmented by pushing OBJ or its DEF.
+  (values ops
+          (cons
+           (if def
+               (make-def :ix def :obj obj)
+             obj)
+           tl)
    ))
 
 (defun zams-iter (ops stk)
@@ -267,12 +276,14 @@ removed from the preprocessed encoding.
             (gethash elt *patch-table*)))
     (incf ix)
     (cond ((< ix limit)
+           ;; set up for the next iteration
            (setf (third stk) ix)
            (values (list* (row-major-aref vec ix)
                           +OP-ITER+
                           ops)
-                   (cdr stk)))
+                   (cdr stk)))  ;; popping elt from stack
           (t
+           ;; we are finished - exit through usual path
            (zams-ret ops tl vec def))
           )))
 
@@ -593,6 +604,9 @@ removed from the preprocessed encoding.
     ;;
     ;; We are supposed to be cycle free. So list reflation should
     ;; terminate.
+    ;;
+    ;; We incrementally remove VEF, VEF*, and DEF in this pass.
+    
     (tree-handler ((obj (encoded-tree-top tree)) :ret (def-table))
       (cond
        ((vef-p obj)
@@ -654,10 +668,24 @@ removed from the preprocessed encoding.
       )))
 
 (defun resolve-shared-node-references (tree def-table)
-  ;; Pass #2 - In the second pass we replace all the REF objects with
-  ;; the object referenced from the def-table filled in from Pass #1.
   (let ((ref-table     (make-hash-table :test #'eq))
         (*patch-table* (make-hash-table :test #'eq)))
+  
+    ;; Pass #2 - In the second pass we replace all the REF objects
+    ;; with the object referenced from the def-table filled in from
+    ;; Pass #1.
+    ;;
+    ;; We look for, and remove all REF. And anything else that isn't a
+    ;; CONS, ARRAY, OR USER-SER gets converted back to its decoded
+    ;; form using LOENC:AFTER-RESTORE.
+    ;;
+    ;; We also take note of any references to USER-SER stand-ins for
+    ;; structured objects. Once all REFs have been applied, many of
+    ;; which may be in the USER-SER TYPE and DATA fields, we will come
+    ;; back and actually decode the USER-SER objects. But here we need
+    ;; to collect writers to later backpatch any references to these
+    ;; objects.
+  
     (tree-handler ((obj tree) :ret (*patch-table*))
       (let* ((share? (shareable-p obj))
              (ct     (if share?
@@ -708,6 +736,17 @@ removed from the preprocessed encoding.
 
 (defun resolve-user-structs (tree *fixup-table*)
   (let ((reftbl (make-hash-table :test #'eq)))
+
+    ;; Now that all meta-objects, except USER-SER structured objects,
+    ;; have been removed, and all REFs have been filled in, it is time
+    ;; to finally decode and reconstruct the USER-SER objects which
+    ;; have been standing in for structured types.
+    ;;
+    ;; You can't just act on a table of noted USER-SER objects, but
+    ;; must actually do them in tree-traversal order, since some of
+    ;; them might be components of containing USER-SER objects.
+    ;;
+    
     (tree-handler ((obj tree))
       (let* ((share?  (shareable-p obj))
              (ct      (if share?
