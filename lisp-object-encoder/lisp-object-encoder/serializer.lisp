@@ -319,17 +319,17 @@ removed from the preprocessed encoding.
 
 (defmacro next (&key ops stk)
   `(progn
-     (psetq ops ,ops stk ,stk)
+     (psetq %ops ,ops %stk ,stk)
      (go next)))
 
 (defmacro handle-opcode (obj)
   `(multiple-value-bind (new-ops new-stk)
-       (zams-dispatch ,obj ops stk)
+       (zams-dispatch ,obj %ops %stk)
      (next :ops new-ops
            :stk new-stk)))
  
 (defmacro with-next-obj ((obj) data-handler &key op-handler)
-  `(let ((,obj  (car ops)))
+  `(let ((,obj  (car %ops)))
      (if (opcode-p ,obj)
          ,(or op-handler `(handle-opcode ,obj))
        ,data-handler)))
@@ -337,11 +337,11 @@ removed from the preprocessed encoding.
 (editor:setup-indent "with-next-obj" 1)
 
 (defmacro tree-handler (((obj tree) &key ret) handler &key op-handler)
-  `(prog  ((ops  (list ,tree))
-           (stk nil))
+  `(prog  ((%ops  (list ,tree))
+           (%stk nil))
      NEXT
-     (if (endp ops)
-         (return (values (car stk) ,@ret))
+     (if (endp %ops)
+         (return (values (car %stk) ,@ret))
        (with-next-obj (,obj)
        ,handler
        :op-handler ,op-handler))))
@@ -379,16 +379,16 @@ removed from the preprocessed encoding.
                         1)))
         (cond
          ((> ct 2)
-          (next :ops (cdr ops)
+          (next :ops (cdr %ops)
                 :stk (cons (make-ref :ix (gethash obj ref-labels))
-                           stk)
+                           %stk)
                 ))
          ((= ct 2)
           (let ((ref-id (incf refctr)))
             (setf (gethash obj ref-labels) ref-id)
-            (next :ops (cdr ops)
+            (next :ops (cdr %ops)
                   :stk (cons (make-ref :ix ref-id)
-                             stk)
+                             %stk)
                   )))
          ((consp obj)
           (let ((new  (list nil)))
@@ -396,21 +396,21 @@ removed from the preprocessed encoding.
             (next :ops (list* (car obj)
                               (cdr obj)
                               +OP-CONS+
-                              (cdr ops))
+                              (cdr %ops))
                   :stk (list* new
                               nil
-                              stk)
+                              %stk)
                   )))
          ((gp-array-p obj)
           (let ((new  (alexandria:copy-array obj)))
             (setf (gethash new alts-table) obj)
             (next :ops (list* (row-major-aref obj 0)
                               +OP-ITER+
-                              (cdr ops))
+                              (cdr %ops))
                   :stk (list* new
                               0 (array-effective-size obj)
                               nil
-                              stk)
+                              %stk)
                   )))
          (t
           (let ((bs-obj (loenc:before-store obj)))
@@ -422,17 +422,17 @@ removed from the preprocessed encoding.
                        (next :ops (list* typ
                                          data
                                          +OP-SER+
-                                         (cdr ops))
+                                         (cdr %ops))
                              :stk (list*  new
                                           nil
-                                          stk)
+                                          %stk)
                              )))
                     (t
                      (unless (eq obj bs-obj)
                        (setf (gethash bs-obj alts-table) obj))
-                     (next :ops (cdr ops)
+                     (next :ops (cdr %ops)
                            :stk (cons bs-obj
-                                      stk)
+                                      %stk)
                            ))
                     ))))
          )))
@@ -456,36 +456,36 @@ removed from the preprocessed encoding.
         (next :ops (list* (car obj)
                           (cdr obj)
                           +OP-CONS+
-                          (cdr ops))
+                          (cdr %ops))
               :stk (list* obj
                           def
-                          stk)
+                          %stk)
               ))
        ((gp-array-p obj)
         (next :ops (list* (row-major-aref obj 0)
                           +OP-ITER+
-                          (cdr ops))
+                          (cdr %ops))
               :stk (list* obj
                           0 (array-effective-size obj)
                           def
-                          stk)
+                          %stk)
               ))
        ((user-ser-p obj)
         (next :ops (list* (user-ser-type obj)
                           (user-ser-data obj)
                           +OP-SER+
-                          (cdr ops))
+                          (cdr %ops))
               :stk (list* obj
                           def
-                          stk)
+                          %stk)
               ))
        (t
-        (next :ops (cdr ops)
+        (next :ops (cdr %ops)
               :stk (cons
                     (if def
                         (make-def :ix def :obj obj)
                       obj)
-                    stk)
+                    %stk)
               ))
        ))))
 
@@ -501,52 +501,52 @@ removed from the preprocessed encoding.
       (next :ops (list*
                   (coerce (ensure-proper-list obj) 'vector)
                   +OP-LIST+
-                  (cdr ops))
+                  (cdr %ops))
             :stk (cons
                   (proper-list-p obj)
-                  stk)
+                  %stk)
             ))
      ((gp-array-p obj)
       (next :ops (list* (row-major-aref obj 0)
                         +OP-ITER+
-                        (cdr ops))
+                        (cdr %ops))
             :stk (list* obj
                         0 (array-effective-size obj)
                         nil
-                        stk)
+                        %stk)
             ))
      ((def-p obj)
       (next :ops (list* (def-obj obj)
                         +OP-DEF+
-                        (cdr ops))
-            :stk (cons obj stk)
+                        (cdr %ops))
+            :stk (cons obj %stk)
             ))
      ((user-ser-p obj)
       (next :ops (list* (user-ser-type obj)
                         (user-ser-data obj)
                         +OP-SER+
-                        (cdr ops))
+                        (cdr %ops))
             :stk (list* obj
                         nil
-                        stk)
+                        %stk)
             ))
      (t
-      (next :ops (cdr ops)
-            :stk (cons obj stk)
+      (next :ops (cdr %ops)
+            :stk (cons obj %stk)
             )))
     :op-handler (cond
                  ((eq obj +OP-LIST+)
-                  (destructuring-bind (vec proper . tl) stk
-                    (next :ops (cdr ops)
+                  (destructuring-bind (vec proper . tl) %stk
+                    (next :ops (cdr %ops)
                           :stk (cons (if proper
                                          (make-vef :vec vec)
                                        (make-vef* :vec vec))
                                      tl)
                           )))
                  ((eq obj +OP-DEF+)
-                  (destructuring-bind (new-val def . tl) stk
+                  (destructuring-bind (new-val def . tl) %stk
                     (setf (def-obj def) new-val)
-                    (next :ops (cdr ops)
+                    (next :ops (cdr %ops)
                           :stk (cons def tl)
                           )))
                  (t
@@ -581,8 +581,8 @@ removed from the preprocessed encoding.
           (assert (plusp nel)) ;; should always be true
           (next :ops (list* vec
                             +OP-LIST+
-                            (cdr ops))
-                :stk stk)
+                            (cdr %ops))
+                :stk %stk)
           ))
        ((vef*-p obj)
         (let* ((vec  (vef*-vec obj))
@@ -590,57 +590,57 @@ removed from the preprocessed encoding.
           (assert (> nel 1)) ;; should always be true
           (next :ops (list* vec
                             +OP-LIST*+
-                            (cdr ops))
+                            (cdr %ops))
                 :stk (cons (1- nel)
-                           stk)
+                           %stk)
                 )))
        ((def-p obj)
         (next :ops (list* (def-obj obj)
                           +OP-DEF+
-                          (cdr ops))
+                          (cdr %ops))
               :stk (cons (def-ix obj)
-                         stk)
+                         %stk)
               ))
        ((user-ser-p obj)
         (next :ops (list* (user-ser-type obj)
                           (user-ser-data obj)
                           +OP-SER+
-                          (cdr ops))
+                          (cdr %ops))
               :stk (list* (make-user-ser)
                           nil
-                          stk)
+                          %stk)
               ))
        ((gp-array-p obj)
         (next :ops (list* (row-major-aref obj 0)
                           +OP-ITER+
-                          (cdr ops))
+                          (cdr %ops))
               :stk (list* (alexandria:copy-array obj)
                           0 (array-effective-size obj)
                           nil
-                          stk)
+                          %stk)
               ))
        (t
-        (next :ops (cdr ops)
-              :stk (cons obj stk)
+        (next :ops (cdr %ops)
+              :stk (cons obj %stk)
               )))
       :op-handler  (cond
                     ((eq obj +OP-LIST+)
-                     (destructuring-bind (vec . tl) stk
-                       (next :ops (cdr ops)
+                     (destructuring-bind (vec . tl) %stk
+                       (next :ops (cdr %ops)
                              :stk (cons (coerce vec 'list)
                                         tl)
                              )))
                     ((eq obj +OP-LIST*+)
-                     (destructuring-bind (vec nlast . tl) stk
+                     (destructuring-bind (vec nlast . tl) %stk
                        (let ((lst  (butlast (coerce vec 'list))))
                          (setf (cdr (last lst)) (aref vec nlast))
-                         (next :ops (cdr ops)
+                         (next :ops (cdr %ops)
                                :stk (cons lst tl)
                                ))))
                     ((eq obj +OP-DEF+)
-                     (destructuring-bind (val ix . tl) stk
+                     (destructuring-bind (val ix . tl) %stk
                        (setf (gethash ix def-table) val)
-                       (next :ops (cdr ops)
+                       (next :ops (cdr %ops)
                              :stk (cons val tl)
                              )))
                     (t
@@ -659,51 +659,51 @@ removed from the preprocessed encoding.
                        1)))
         (cond
          ((> ct 1)
-          (next :ops (cdr ops)
-                :stk (cons obj stk)
+          (next :ops (cdr %ops)
+                :stk (cons obj %stk)
                 ))
          ((consp obj)
           (next :ops (list* (car obj)
                             (cdr obj)
                             +OP-CONS+
-                            (cdr ops))
+                            (cdr %ops))
                 :stk (list* obj
                             nil
-                            stk)
+                            %stk)
                 ))
          ((gp-array-p obj)
           (next :ops (list* (row-major-aref obj 0)
                             +OP-ITER+
-                            (cdr ops))
+                            (cdr %ops))
                 :stk (list* obj
                             0 (array-effective-size obj)
                             nil
-                            stk)
+                            %stk)
                 ))
          ((ref-p obj)
           (let ((new  (gethash (ref-ix obj) def-table)))
             (next :ops (cons new
-                             (cdr ops))
-                  :stk stk
+                             (cdr %ops))
+                  :stk %stk
                   )))
          ((user-ser-p obj)
           (next :ops (list* (user-ser-type obj)
                             (user-ser-data obj)
                             +OP-SER+
-                            (cdr ops))
+                            (cdr %ops))
                 :stk (list* obj
                             nil
-                            stk)
+                            %stk)
                 ))
          (t
           (let ((ar-obj  (loenc:after-restore obj)))
             (if (eq ar-obj obj)
-                (next :ops (cdr ops)
+                (next :ops (cdr %ops)
                       :stk (cons obj
-                                 stk))
+                                 %stk))
               (next :ops (cons obj
-                               (cdr ops))
-                    :stk stk)
+                               (cdr %ops))
+                    :stk %stk)
               )))
          )))
     ))
@@ -722,40 +722,40 @@ removed from the preprocessed encoding.
                         1)))
         (cond
          ((> ct 1)
-          (next :ops (cdr ops)
-                :stk (cons obj stk)
+          (next :ops (cdr %ops)
+                :stk (cons obj %stk)
                 ))
              
          ((consp obj)
           (next :ops (list* (car obj)
                             (cdr obj)
                             +OP-CONS+
-                            (cdr ops))
+                            (cdr %ops))
                 :stk (list* obj
                             nil
-                            stk)
+                            %stk)
                 ))
          ((gp-array-p obj)
           (next :ops (list* (aref obj 0)
                             +OP-ITER+
-                            (cdr ops))
+                            (cdr %ops))
                 :stk (list* obj
                             0 (array-effective-size obj)
                             nil
-                            stk)
+                            %stk)
                 ))
          ((user-ser-p obj)
           (next :ops (list* (user-ser-type obj)
                             (user-ser-data obj)
                             +OP-SER+
-                            (cdr ops))
+                            (cdr %ops))
                 :stk (list* obj
                             nil
-                            stk)
+                            %stk)
                 ))
          (t
-          (next :ops (cdr ops)
-                :stk (cons obj stk)
+          (next :ops (cdr %ops)
+                :stk (cons obj %stk)
                 ))
          )))
     ))
