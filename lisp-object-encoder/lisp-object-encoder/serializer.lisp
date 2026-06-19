@@ -209,7 +209,8 @@ removed from the preprocessed encoding.
 ;; merely guide the serialization process.
 ;;
 ;; We operate an input execution queue and a result stack.
-;; Basically a ZAMS machine.
+;; Basically a ZAMS machine. Take operands from a queue, and push
+;; results onto a stack.
 
 ;; --------------------------------------------
 ;; By making them structs we can use OPCODE-P to test their general
@@ -335,13 +336,13 @@ removed from the preprocessed encoding.
 #+:LISWORKS
 (editor:setup-indent "with-next-obj" 1)
 
-(defmacro tree-handler ((tree &key ret) handler &key op-handler)
+(defmacro tree-handler (((obj tree) &key ret) handler &key op-handler)
   `(prog  ((ops  (list ,tree))
            (stk nil))
      NEXT
      (if (endp ops)
          (return (values (car stk) ,@ret))
-       (with-next-obj (obj)
+       (with-next-obj (,obj)
        ,handler
        :op-handler ,op-handler))))
 #+:LISPWORKS
@@ -371,7 +372,7 @@ removed from the preprocessed encoding.
     ;; seeing the second reference to an object already seen. We have
     ;; to rescan, in Pass #2, to find the first reference again, and
     ;; turn it into a DEF node.
-    (tree-handler (tree :ret (ref-labels alts-table))
+    (tree-handler ((obj tree) :ret (ref-labels alts-table))
       (let* ((share?  (shareable-p obj))
              (ct      (if share? 
                           (incf (gethash obj ref-counts 0))
@@ -445,7 +446,7 @@ removed from the preprocessed encoding.
   ;; could not know that it was repeated unless we had seen it at
   ;; least once before. The first look should be converted to a DEF.
   
-  (tree-handler (tree)
+  (tree-handler ((obj tree))
     (let* ((share?  (shareable-p obj))
            (def     (when share?  ;; special for NIL
                       (let ((alt (gethash obj alts-table obj)))
@@ -494,7 +495,7 @@ removed from the preprocessed encoding.
   ;; Proper lists become VEF objects.
   ;; Improper lists become VEF* objects.
 
-  (tree-handler (tree)
+  (tree-handler ((obj tree))
     (cond
      ((consp obj)
       (next :ops (list*
@@ -572,7 +573,7 @@ removed from the preprocessed encoding.
     ;;
     ;; We are supposed to be cycle free. So list reflation should
     ;; terminate.
-    (tree-handler ((encoded-tree-top tree) :ret (def-table))
+    (tree-handler ((obj (encoded-tree-top tree)) :ret (def-table))
       (cond
        ((vef-p obj)
         (let* ((vec  (vef-vec obj))
@@ -651,7 +652,7 @@ removed from the preprocessed encoding.
   ;; the object referenced from the def-table filled in from Pass #1.
   (let ((ref-table     (make-hash-table :test #'eq))
         (*patch-table* (make-hash-table :test #'eq)))
-    (tree-handler (tree :ret (*patch-table*))
+    (tree-handler ((obj tree) :ret (*patch-table*))
       (let* ((share? (shareable-p obj))
              (ct     (if share?
                          (incf (gethash obj ref-table 0))
@@ -714,7 +715,7 @@ removed from the preprocessed encoding.
 
 (defun resolve-user-structs (tree *fixup-table*)
   (let ((reftbl (make-hash-table :test #'eq)))
-    (tree-handler (tree)
+    (tree-handler ((obj tree))
       (let* ((share?  (shareable-p obj))
              (ct      (if share?
                           (incf (gethash obj reftbl 0))
