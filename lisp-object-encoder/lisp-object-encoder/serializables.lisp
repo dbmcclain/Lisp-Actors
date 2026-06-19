@@ -5,6 +5,19 @@
 
 (in-package #:serializer)
 
+#|
+Question: Which is more space efficient? Parallel K/V lists? or List of Pairs?
+
+Answer:
+  Parallel K/V lists:  VEF Vec Len k1 k2 k3 ... | VEF Vec Len v1 v2 v3 ...,     so 2*(3+N*L(x))   = 6 + 2*N*L(x)
+  List of Pairs:       VEF Vec Len | VEF* Vec 2 k1 v1 | VEF* Vec 2 k2 v2 | ..., so 3+N*(3+2*L(x)) = 3*(N+1)+2*N*L(x)
+
+  So, in general, for N > 1, Parallel K/V Lists takes less space.
+
+  So our encodings strive to use parallel k/v lists.
+
+  We could shorten the encoding of CONS-cell pairs. Then we would have 3+N overhead. Still grows with N.
+|#
 ;; ----------------------------------
 ;; UUID's
 
@@ -19,25 +32,29 @@
 ;; HASH-TABLES
 
 (defmethod make-serializable ((ht hash-table))
-  (values :HASH-TABLE
-          (list (hash-table-rehash-size ht)
-                (hash-table-rehash-threshold ht)
-                (hash-table-size ht)
-                (hash-table-test ht)
-                (loop for key being the hash-keys of ht
-                        using (hash-value value)
-                      collect
-                      (cons key value))
-                )))
+  (let ((keys nil)
+        (vals nil))
+    (maphash (lambda (k v)
+               (push k keys)
+               (push v vals))
+             ht)
+    (values :HASH-TABLE
+            (list (hash-table-rehash-size ht)
+                  (hash-table-rehash-threshold ht)
+                  (hash-table-size ht)
+                  (hash-table-test ht)
+                  keys vals
+                  ))))
 
 (defmethod deserialize-type ((type (eql :HASH-TABLE)) data)
-  (destructuring-bind (rehash-size rehash-threshold size test kvs) data
+  (destructuring-bind (rehash-size rehash-threshold size test keys vals) data
     (let ((ht (make-hash-table :test test
                                :rehash-size rehash-size
                                :rehash-threshold rehash-threshold
                                :size size)))
-      (loop for (key . value) in kvs do
-              (setf (gethash key ht) value))
+      (map nil (lambda (k v)
+                 (setf (gethash k ht) v))
+           keys vals)
       ht)))
 
 ;; --------------------------------------------
@@ -47,6 +64,15 @@
   ;; (nr-linearize-tree id)
   ;; (nr-linearize-tree (nr-linearize-tree id))
   )
+
+(let ((ht  (make-hash-table)))
+  (dolist (pair '((a . 1)
+                  (b . 2)
+                  (c . 3)))
+    (setf (gethash (car pair) ht) (cdr pair)))
+  (inspect (decode (encode ht)))
+  (let ((enc (encode ht)))
+    (list (length enc) enc))))
 |#
 ;; --------------------------------------------
 ;; General Structs
@@ -94,16 +120,6 @@
                  new-instance))
             ))))
 
-#+:SBCL
-(defmethod make-serializable ((obj structure-object))
-  (values :STRUCT
-          (gather-instance-data obj)))
-
-#+:SBCL
-(defmethod deserialize-type ((type (eql :STRUCT)) data)
-  (restore-type-object 'structure-object 'structure-class data))
-
-
 ;; --------------------------------------------
 ;; Class Instances
 
@@ -130,6 +146,11 @@
   (values :CONDITION
           (gather-instance-data obj)))
 
+#+:SBCL
+(defmethod make-serializable ((obj structure-object))
+  (values :STRUCT
+          (gather-instance-data obj)))
+
 
 (defun restore-type-object (obj-type metaclass data)
   (destructuring-bind (class-name slot-names slot-values) data
@@ -151,24 +172,72 @@
 (defmethod deserialize-type ((type (eql :CONDITION)) data)
   (restore-type-object 'condition 'standard-class data))
 
+#+:SBCL
+(defmethod deserialize-type ((type (eql :STRUCT)) data)
+  (restore-type-object 'structure-object 'structure-class data))
+
+;; -------------------------------------------------------
+;; Classes
+
+(defmethod make-serializable ((obj standard-class))
+  (values :CLASS
+          (list (class-name obj)
+                (mapcar #'sdle-store::get-slot-details (class-direct-slots obj))
+                (mapcar (if sdle-store::*store-class-superclasses*
+                            #'identity 
+                          #'class-name)
+                        (class-direct-superclasses obj))
+                (class-name (class-of obj))
+                )))
+
+(defmethod deserialize-type ((typ (eql :CLASS)) data)
+  (destructuring-bind (class slots supers meta) data
+    (let* ((keywords '(:direct-slots :direct-superclasses
+                       :metaclass))
+           (final (loop for keyword in keywords
+                        for slot in (list slots 
+                                          (or supers
+                                              (list 'standard-object))
+                                          meta)
+                        nconc (list keyword slot))))
+      (cond ((find-class class nil)
+             (cond (sdle-store::*nuke-existing-classes*
+                    (apply #'ensure-class class final)
+                    #+(and clisp (not mop)) (add-methods-for-class class slots))
+                   (t (find-class class))))
+            (t (apply #'ensure-class class final)
+               #+(and clisp (not mop)) (add-methods-for-class class slots))
+            ))))
+
+;; built in classes
+
+(defmethod make-serializable ((obj built-in-class))
+  (values :BUILT-IN-CLASS
+          (class-name obj)))
+
+(defmethod deserialize-type ((type (eql :BUILT-IN-CLASS)) data)
+  (find-class data))
+
 ;; --------------------------------------------
 ;; RB-Trees
 
 (defmethod make-serializable ((obj maps:empty))
-  (values :MAP-EMPTY nil))
+  :RB-EMPTY)
 
 (defmethod make-serializable ((obj sets:node))
-  (if (maps::map-cell-p (sets::node-v obj))
-      (values :RB-MAP
-              (mapcar (lambda (cell)
-                        (cons (maps:map-cell-key cell)
-                              (maps:map-cell-val cell)))
-                      (sets:elements obj)))
-    (values :RB-SET
-            (sets:elements obj))
+  (let ((elts  (sets:elements obj)))
+    (if (maps::map-cell-p (sets::node-v obj))
+        (let ((keys nil)
+              (vals nil))
+          (dolist (cell elts)
+            (push (maps:map-cell-key cell) keys)
+            (push (maps:map-cell-val cell) vals))
+          (values :RB-MAP
+                  (list  keys vals)))
+      (values :RB-SET elts))
     ))
 
-(defmethod deserialize-type ((type (eql :MAP-EMPTY)) data)
+(defmethod deserialize-type ((type (eql :RB-EMPTY)) data)
   (declare (ignore data))
   (maps:empty))
 
@@ -179,10 +248,9 @@
     tree))
 
 (defmethod deserialize-type ((type (eql :RB-MAP)) data)
-  (let ((tree (maps:empty)))
-    (dolist (pair data)
-      (maps:addf tree (car pair) (cdr pair)))
-    tree))
-
-
-
+  (destructuring-bind (keys vals) data
+    (let ((tree (maps:empty)))
+      (map nil (lambda (k v)
+                 (maps:addf tree k v))
+           keys vals)
+      tree)))

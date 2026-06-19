@@ -143,12 +143,17 @@ removed from the preprocessed encoding.
 (defun proper-list-p (lst)
   (alexandria:proper-list-p lst))
 
-(defun gp-vector-p (x)
-  (and (vectorp x)
-       (plusp (length x))
+(defun array-effective-size (x)
+  (if (array-has-fill-pointer-p x)
+      (fill-pointer x)
+    (array-total-size x)))
+
+(defun gp-array-p (x)
+  (and (arrayp x)
+       (plusp (array-effective-size x))
        (eql t (array-element-type x))))
 
-(defun dotted-to-proper-list (lst)
+(defun ensure-proper-list (lst)
   (um:nlet iter ((lst lst)
                  (ans nil))
     (cond ((consp lst)
@@ -176,7 +181,7 @@ removed from the preprocessed encoding.
 
 
 (defgeneric sharable-p (x)
-  ;; True if we 
+  ;; True if we need ref counting on item
   (:method ((x (eql nil)))
    nil)
   (:method ((x (eql t)))
@@ -184,8 +189,6 @@ removed from the preprocessed encoding.
   (:method ((x number))
    nil)
   (:method ((x character))
-   nil)
-  (:method ((x sets:empty))
    nil)
   (:method (x)  ;; any others?
    t))
@@ -257,9 +260,7 @@ removed from the preprocessed encoding.
     (um:nlet iter ((xq  (list tree))
                    (ans nil))
       (if (endp xq)
-          (progn
-            ;; (inspect ref-counts)
-            (values (car ans) ref-labels alts-table))
+          (values (car ans) ref-labels alts-table)
         (let ((obj (car xq)))
           (if (opcode-p obj)
               (cond
@@ -272,11 +273,11 @@ removed from the preprocessed encoding.
                   ))
                ((new-iter-p obj)
                 (destructuring-bind (elt vec ix limit . tl) ans
-                  (setf (aref vec ix) elt)
+                  (setf (row-major-aref vec ix) elt)
                   (incf ix)
                   (cond ((< ix limit)
                          (setf (third ans) ix)
-                         (go-iter (cons (aref vec ix)
+                         (go-iter (cons (row-major-aref vec ix)
                                         xq)
                                   (cdr ans)))
                         (t
@@ -312,17 +313,18 @@ removed from the preprocessed encoding.
                                   *new-cons*
                                   (cdr xq))
                            (cons new ans))))
-               ((gp-vector-p obj)
-                (let ((new  (copy-seq obj)))
+
+               ((gp-array-p obj)
+                (let ((new  (alexandria:copy-array obj)))
                   (setf (gethash new alts-table) obj)
-                  (go-iter (list* (aref obj 0)
+                  (go-iter (list* (row-major-aref obj 0)
                                   *new-iter*
                                   (cdr xq))
                            (list* new
-                                  0 (length obj)
+                                  0 (array-effective-size obj)
                                   ans))
                   ))
-
+               
                ((encoded-p obj)
                 ;; oops!
                 (error "You cannot encode an already-encoded tree.")
@@ -400,11 +402,11 @@ removed from the preprocessed encoding.
                 ))
              ((new-iter-p obj)
               (destructuring-bind (elt vec ix limit def . tl) ans
-                (setf (aref vec ix) elt)
+                (setf (row-major-aref vec ix) elt)
                 (incf ix)
                 (cond ((< ix limit)
                        (setf (third ans) ix)
-                       (go-iter (cons (aref vec ix)
+                       (go-iter (cons (row-major-aref vec ix)
                                       xq)
                                 (cdr ans)))
                       (t
@@ -440,12 +442,13 @@ removed from the preprocessed encoding.
                        (list* obj
                               def
                               ans)))
-             ((gp-vector-p obj)
-              (go-iter (list* (aref obj 0)
+             ((gp-array-p obj)
+              (go-iter (list* (row-major-aref obj 0)
                               *new-iter*
                               (cdr xq))
                        (list* obj
-                              0 (length obj) def
+                              0 (array-effective-size obj)
+                              def
                               ans)))
              ((user-ser-p obj)
               (go-iter (list* (user-ser-type obj)
@@ -486,11 +489,11 @@ removed from the preprocessed encoding.
                 ))
              ((new-iter-p obj)
               (destructuring-bind (elt vec ix limit . tl) ans
-                (setf (aref vec ix) elt)
+                (setf (row-major-aref vec ix) elt)
                 (incf ix)
                 (cond ((< ix limit)
                        (setf (third ans) ix)
-                       (go-iter (cons (aref vec ix)
+                       (go-iter (cons (row-major-aref vec ix)
                                       xq)
                                 (cdr ans)))
                       (t
@@ -514,25 +517,19 @@ removed from the preprocessed encoding.
           ;; else - data items
           (cond
            ((consp obj)
-            (if (proper-list-p obj)
-                (go-iter  (list*
-                           (coerce obj 'vector)
-                           *new-cons*
-                           (cdr xq))
-                          (cons t ans))
-              (let ((lst  (dotted-to-proper-list obj)))
-                (go-iter (list*
-                          (coerce lst 'vector)
-                          *new-cons*
-                          (cdr xq))
-                         (cons nil ans))
-                )))
-           ((gp-vector-p obj)
-            (go-iter (list* (aref obj 0)
+            (go-iter (list*
+                      (coerce (ensure-proper-list obj) 'vector)
+                      *new-cons*
+                      (cdr xq))
+                     (cons
+                      (proper-list-p obj)
+                      ans)))
+           ((gp-array-p obj)
+            (go-iter (list* (row-major-aref obj 0)
                             *new-iter*
                             (cdr xq))
                      (list* obj
-                            0 (length obj)
+                            0 (array-effective-size obj)
                             ans)))
            ((def-p obj)
             (go-iter (list* (def-obj obj)
@@ -593,11 +590,11 @@ removed from the preprocessed encoding.
                     )))
                ((new-iter-p obj)
                 (destructuring-bind (elt vec ix limit . tl) ans
-                  (setf (aref vec ix) elt)
+                  (setf (row-major-aref vec ix) elt)
                   (incf ix)
                   (cond ((< ix limit)
                          (setf (third ans) ix)
-                         (go-iter (cons (aref vec ix)
+                         (go-iter (cons (row-major-aref vec ix)
                                         xq)
                                   (cdr ans)))
                         (t
@@ -638,12 +635,12 @@ removed from the preprocessed encoding.
                                 (cdr xq))
                          (cons (1- nel) ans))
                 ))
-             ((gp-vector-p obj)
-              (go-iter (list* (aref obj 0)
+             ((gp-array-p obj)
+              (go-iter (list* (row-major-aref obj 0)
                               *new-iter*
                               (cdr xq))
-                       (list* (copy-seq obj)
-                              0 (length obj)
+                       (list* (alexandria:copy-array obj)
+                              0 (array-effective-size obj)
                               ans)))
              ((def-p obj)
               (go-iter (list* (def-obj obj)
@@ -692,16 +689,16 @@ removed from the preprocessed encoding.
                   ))
                ((new-iter-p obj)
                 (destructuring-bind (elt vec ix limit . tl) ans
-                  (setf (aref vec ix) elt)
+                  (setf (row-major-aref vec ix) elt)
                   (when (user-ser-p elt)
                     (push (let ((ix ix))
                             (lambda (obj)
-                              (setf (aref vec ix) obj)))
+                              (setf (row-major-aref vec ix) obj)))
                           (gethash elt places-table)))
                   (incf ix)
                   (cond ((< ix limit)
                          (setf (third ans) ix)
-                         (go-iter (cons (aref vec ix)
+                         (go-iter (cons (row-major-aref vec ix)
                                         xq)
                                   (cdr ans)))
                         (t
@@ -736,12 +733,12 @@ removed from the preprocessed encoding.
                                 (cdr xq))
                          (cons obj ans)))
 
-               ((gp-vector-p obj)
-                (go-iter (list* (aref obj 0)
+               ((gp-array-p obj)
+                (go-iter (list* (row-major-aref obj 0)
                                 *new-iter*
                                 (cdr xq))
                          (list* obj
-                                0 (length obj)
+                                0 (array-effective-size obj)
                                 ans)))
                ((ref-p obj)
                 (let ((new  (gethash (ref-ix obj) def-table)))
@@ -790,11 +787,11 @@ removed from the preprocessed encoding.
                   ))
                ((new-iter-p obj)
                 (destructuring-bind (elt vec ix limit . tl) ans
-                  (setf (aref vec ix) elt)
+                  (setf (row-major-aref vec ix) elt)
                   (incf ix)
                   (cond ((< ix limit)
                          (setf (third ans) ix)
-                         (go-iter (cons (aref vec ix)
+                         (go-iter (cons (row-major-aref vec ix)
                                         xq)
                                   (cdr ans)))
                         (t
@@ -824,12 +821,12 @@ removed from the preprocessed encoding.
                                   *new-cons*
                                   (cdr xq))
                            (cons obj ans)))
-                 ((gp-vector-p obj)
+                 ((gp-array-p obj)
                   (go-iter (list* (aref obj 0)
                                   *new-iter*
                                   (cdr xq))
                            (list* obj
-                                  0 (length obj)
+                                  0 (array-effective-size obj)
                                   ans)))
                  ((user-ser-p obj)
                   (go-iter (list* (user-ser-type obj)
