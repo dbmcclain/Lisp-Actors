@@ -77,7 +77,7 @@ the individual CONS cells of LIST spines.
 list of 100 integers. The preprocessed octed stream requires 203
 bytes, while the raw encoding requires 302 bytes. The CONS cell spine
 of the list is fully 50% of the data size. That entire spine is
-removed from the preprocessed encoding.
+removed by preprocessed the data.
 
 |#
 ;; --------------------------------------------
@@ -596,7 +596,8 @@ removed from the preprocessed encoding.
 ;; --------------------------------------------
 
 (defun copy-tree-reflating-vectors (tree)
-  (let ((def-table (make-hash-table)))
+  (let ((def-table  (make-hash-table))
+        (refc-table (make-hash-table :test #'eq)))
     
     ;; First pass - reinflate the VEF & VEF* objects to proper and
     ;; improper lists, and look for DEFs, recording them in the
@@ -606,46 +607,63 @@ removed from the preprocessed encoding.
     ;; terminate.
     ;;
     ;; We incrementally remove VEF, VEF*, and DEF in this pass.
+    ;;
+    ;; REFC-TABLE is used to detect cycles in the tree. There should
+    ;; not be any cycles. SHARE? is used to avoid reference counting
+    ;; trivial items like numbers and characters, T, and NIL.
     
     (tree-handler ((obj (encoded-tree-top tree)) :ret (def-table))
-      (cond
-       ((vef-p obj)
-        (let* ((vec  (vef-vec obj))
-               (nel  (length vec)))
-          (assert (plusp nel)) ;; should always be true
-          (next :ops+ (vec
-                       +OP-LIST+))
-          ))
-       ((vef*-p obj)
-        (let* ((vec  (vef*-vec obj))
-               (nel  (length vec)))
-          (assert (> nel 1)) ;; should always be true
-          (next :ops+ (vec
-                       +OP-LIST*+)
-                :stk+ ((1- nel))
-                )))
-       ((def-p obj)
-        (next :ops+ ((def-obj obj)
-                     +OP-DEF+)
-              :stk+ ((def-ix obj))
-              ))
-       ((user-ser-p obj)
-        (next :ops+ ((user-ser-type obj)
-                     (user-ser-data obj)
-                     +OP-SER+)
-              :stk+ ((make-user-ser)
-                     nil)
-              ))
-       ((gp-array-p obj)
-        (next :ops+ ((row-major-aref obj 0)
-                     +OP-ITER+)
-              :stk+ ((alexandria:copy-array obj)
-                     0 (array-effective-size obj)
-                     nil)
-              ))
-       (t
-        (next :stk+ obj)
-        ))
+      (let* ((share?  (shareable-p obj))
+             (ct      (if share?
+                          (incf (gethash obj refc-table 0))
+                        1)))
+        (cond
+         ((> ct 1)
+          ;; Even if there are no CONS cells, it is still possible to
+          ;; see cycles among vectors.
+          (error "Cyclic data encountered during initial decoding."))
+         
+         ((vef-p obj)
+          (let* ((vec  (vef-vec obj))
+                 (nel  (length vec)))
+            (assert (plusp nel)) ;; should always be true
+            (next :ops+ (vec
+                         +OP-LIST+))
+            ))
+         ((vef*-p obj)
+          (let* ((vec  (vef*-vec obj))
+                 (nel  (length vec)))
+            (assert (> nel 1)) ;; should always be true
+            (next :ops+ (vec
+                         +OP-LIST*+)
+                  :stk+ ((1- nel))
+                  )))
+         ((def-p obj)
+          (next :ops+ ((def-obj obj)
+                       +OP-DEF+)
+                :stk+ ((def-ix obj))
+                ))
+         ((user-ser-p obj)
+          (next :ops+ ((user-ser-type obj)
+                       (user-ser-data obj)
+                       +OP-SER+)
+                :stk+ ((make-user-ser)
+                       nil)
+                ))
+         ((gp-array-p obj)
+          (next :ops+ ((row-major-aref obj 0)
+                       +OP-ITER+)
+                :stk+ ((alexandria:copy-array obj)
+                       0 (array-effective-size obj)
+                       nil)
+                ))
+         
+         ((consp obj)
+          (error "Encountered a CONS during initial decoding."))
+         
+         (t
+          (next :stk+ obj)
+          )))
       :op-handler  (cond
                     ((eq obj +OP-LIST+)
                      (destructuring-bind (vec . tl) %stk
@@ -818,26 +836,6 @@ removed from the preprocessed encoding.
               (nr-reflate-tree (nr-linearize-tree lst)))))
   ;; (nr-linearize-tree lst)
   (nr-reflate-tree (nr-linearize-tree lst))
-  )
-
-(let ((lst  (list* 'a 'b 'c 'd)))
-  (setf (cdr (last lst)) (cdr lst))
-  
-  ;; Produce a ENCODED-TREE - okay
-  ;; (nr-linearize-tree lst)
-
-  ;; Try an unencoded tree - not an Encoded Tree Error
-  ;; (nr-reflate-tree lst)
-
-  ;; Try to get past the gatekeeper - can't encode an already-encoded tree error
-  ;; (nr-linearize-tree (nr-linearize-tree lst))
-  ;; (nr-linearize-tree (encoded-tree-top (nr-linearize-tree lst)))
-
-  ;; The only correct statement
-  ;; (nr-reflate-tree (nr-linearize-tree lst))
-  
-  ;; Try to sneak past the gatekeeper... -- forbidden data cycle detected
-  ;; (nr-reflate-tree (make-encoded-tree :top (nr-reflate-tree (nr-linearize-tree LST))))
   )
 |#
 ;; --------------------------------------------
