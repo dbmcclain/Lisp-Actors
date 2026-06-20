@@ -302,7 +302,8 @@ THE SOFTWARE.
   ((fn  :reader contention-free-behavior-function-fn  :initarg :fn))
   (:metaclass clos:funcallable-standard-class))
 
-(defmethod initialize-instance :after ((beh contention-free-behavior-function) &key fn &allow-other-keys)
+(defmethod initialize-instance :after ((beh contention-free-behavior-function)
+                                       &key fn &allow-other-keys)
   (clos:set-funcallable-instance-function beh fn))
 
 (defgeneric inner-dispatch (fn normal-dispatch-fn)
@@ -325,9 +326,10 @@ THE SOFTWARE.
          ))
      ))
   (:method ((fn function) normal-dispatch-fn)
-   ;; Cost of accommodating CONTENTION-FREE-BEHAVIOR's is one CLOS method dispatch and a
-   ;; function call back to the inner dispatch routine.  -- lighter
-   ;; than surrounding every message dispatch with UNWIND-PROTECT.
+   ;; Cost of accommodating CONTENTION-FREE-BEHAVIOR's is one CLOS
+   ;; method dispatch and a function call back to the inner dispatch
+   ;; routine.  -- lighter than surrounding every message dispatch
+   ;; with UNWIND-PROTECT.
    #F
    (declare (function normal-dispatch-fn))
    (funcall normal-dispatch-fn))
@@ -421,7 +423,7 @@ THE SOFTWARE.
                                  #'normal-dispatch
                                  #'dispatch-loop))
         
-        (setf norm-clos #'normal-dispatch) ;; does this save any cycles?
+        (setf norm-clos #'normal-dispatch) ;; avoid dynamic CLOSURE-ON-STACK in every dispatch
         ;; --------------------------------------------
         
         (let ((*send-hook*      #'%send)
