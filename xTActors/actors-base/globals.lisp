@@ -31,6 +31,10 @@
   (declare (ignore ignored))
   (error "BECOME while not in an Actor"))
   
+(defun not-in-cf-actor (&rest ignored)
+  (declare (ignore ignored))
+  (error "AT-EXIT while not in a Contention-Free Actor"))
+  
 ;; --------------------------------------------
 ;; Per-Thread for Activated Actors
 ;;
@@ -52,7 +56,7 @@
 (defvar *become-hook*    #'not-in-actor)
 (defvar *abort-beh-hook* #'do-nothing)
 (defvar *ac-become-hook* #'not-in-actor) ;; backup BECOME-HOOK, never rebound by WITH-CONTENTION-FREE-SEMANTICS
-(defvar *at-exit-hook*   #'not-in-actor)
+(defvar *at-exit-hook*   #'not-in-cf-actor)
 
 ;; --------------------------------------------
 ;; User level has Read-Only access

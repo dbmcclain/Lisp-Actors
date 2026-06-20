@@ -88,7 +88,7 @@
              (try-release (&rest ignored)
                (declare (ignore ignored))
                (mpc:compare-and-swap owner me nil)))
-        (declare (dynamic-extent #'try-acquire))
+        (declare (dynamic-extent #'try-acquire #'go-around))
         ;;
         ;; First thread to attempt WITHOUT-CONTENTION takes it,
         ;; preemptively blocking all other threads from mutating the
@@ -119,7 +119,7 @@
          (*do-without-contention-vector* #'%bypassed-without-contention))
     (funcall fn guard thunk)
     ))
-  
+
 (defmacro with-contention-free-semantics (beh-fn)
   ;; Should wrap a behavior function.
   ;;
@@ -137,15 +137,17 @@
   ;; left with runtime error trapping.
   ;;
   (um:with-unique-names (g!guard g!msg)
-    `(let ((,g!guard (list nil)))
-       (lambda (&rest ,g!msg)
-         (%do-with-disallowed-contention
-          ,g!msg
-          ,g!guard
-          (macrolet ((without-contention (&body body)
-                       `(%do-without-contention ,',g!guard (lambda ()
-                                                             ,@body))
-                       ))
-            ,beh-fn))
-         ))
-    ))
+    `(make-instance 'cf-beh
+                    :fn 
+                    (let ((,g!guard (list nil)))
+                      (lambda (&rest ,g!msg)
+                        (%do-with-disallowed-contention
+                         ,g!msg
+                         ,g!guard
+                         (macrolet ((without-contention (&body body)
+                                      `(%do-without-contention ,',g!guard (lambda ()
+                                                                            ,@body))
+                                      ))
+                           ,beh-fn))
+                        ))
+                    )))

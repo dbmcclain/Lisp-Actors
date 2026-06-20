@@ -286,6 +286,62 @@ THE SOFTWARE.
   (inspect *which-actor*))
 |#
 ;; --------------------------------------------
+;; Special Funcallable Class for Contention-Free Behaviors
+;; 
+;; Using Funcallable Instances allows us to distinguish classes of
+;; behavior functions - so called "Typed Functions".
+;;
+;; The CF-BEH class is intended for Contention-Free Semantics. They
+;; are relatively scarce Actor behaviors, invented after finding
+;; contention races in some Actors.
+;;
+;; So make them pay for most of the freight of their implementation.
+
+(defclass cf-beh ()
+  ((fn  :reader cf-beh-fn  :initarg :fn))
+  (:metaclass clos:funcallable-standard-class))
+
+(defmethod initialize-instance :after ((beh cf-beh) &key fn &allow-other-keys)
+  (clos:set-funcallable-instance-function beh fn))
+
+(defgeneric beh-fn-kind (fn)
+  (:method ((fn cf-beh))
+   :cf-beh)
+  (:method ((fn function))
+   :function)
+  (:method (fn)
+   nil))
+
+(defgeneric inner-dispatch (fn normal-disp)
+  ;; These methods allow specialized behaviors to set up dynamic
+  ;; control flow scaffolding (aka UNWIND-PROTECT) surrounding a
+  ;; normal dispatch.
+  (:method ((fn cf-beh) normal-disp)
+   (let ((pend-exits  nil))
+     (flet ((%at-exit (fn)
+              (push fn pend-exits)))
+       (declare (dynamic-extent #'%at-exit))
+       (unwind-protect
+           (let ((*at-exit-hook* #'%at-exit))
+             (funcall normal-disp))
+         (when pend-exits
+           (dolist (fn (the list pend-exits))
+             (funcall fn)))
+         ))
+     ))
+  (:method ((fn function) normal-disp)
+   ;; Cost of accommodating CF-BEH's is one CLOS method dispatch and a
+   ;; function call back to the inner dispatch routine.  -- lighter
+   ;; than surrounding every message dispatch with UNWIND-PROTECT.
+   (funcall normal-disp))
+  
+  (:method (fn normal-disp)
+   (declare (ignore normal-disp))
+   ;; junk - just return T so we don't retry
+   t
+   ))
+
+;; --------------------------------------------
 
 (defun actor-dispatch-loop (&optional timeout done-ptr)
   #F
@@ -298,7 +354,7 @@ THE SOFTWARE.
              (SEND-EVENT (msg)
                `(mpc:mailbox-send *central-mail* ,msg)))
     
-    (let (sends pend-beh pend-exits)
+    (let (sends pend-beh)
       (labels
           ((%send (msg)
              ;; Within one Actor invocation there can be no significance
@@ -312,8 +368,27 @@ THE SOFTWARE.
              (setf pend-beh *self-beh*
                    sends    nil))
 
-           (%at-exit (fn)
-             (push fn pend-exits))
+           (normal-dispatch ()
+             (let ((*self-beh* pend-beh))
+               ;; ---------------------------------
+               ;; Dispatch to Actor behavior with message args
+               (apply (the function pend-beh) (the list *self-msg*))
+               
+               ;; ---------------------------------
+               ;; Commit BECOME and SENDS
+               (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
+                           (mpc:compare-and-swap
+                            (actor-beh (the actor *self*))
+                            *self-beh* pend-beh))     ;; effective BECOME
+                 ;; failed on behavior update - try again...
+                 #+:LISPWORKS
+                 (report-collision *self-beh*) ;; for engineering telemetry
+                 (return-from normal-dispatch nil))
+               
+               (when sends
+                 (dolist (msg (the list sends))
+                   (SEND-EVENT msg)))
+               t))
 
            (dispatch-loop ()
              ;; -------------------------------------------------------
@@ -339,47 +414,20 @@ THE SOFTWARE.
                   (tagbody
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))
-                         pend-exits nil
                          sends      nil)
-                   (when (functionp pend-beh)
-                     (unwind-protect
-                         (let ((*self-beh* pend-beh))
-                           ;; ---------------------------------
-                           ;; Dispatch to Actor behavior with message args
-                           (apply (the function pend-beh) (the list *self-msg*))
-                           
-                           ;; ---------------------------------
-                           ;; Commit BECOME and SENDS
-                           (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
-                                       (mpc:compare-and-swap
-                                        (actor-beh (the actor *self*))
-                                        *self-beh* pend-beh))     ;; effective BECOME
-                             ;; failed on behavior update - try again...
-                             #+:LISPWORKS
-                             (report-collision *self-beh*) ;; for engineering telemetry
-                             (go RETRY))
-                           
-                           (when sends
-                             (dolist (msg (the list sends))
-                               (SEND-EVENT msg))))
-                       
-                       ;; unwind clause
-                       (when pend-exits
-                         (dolist (fn (the list pend-exits))
-                           (funcall fn)))
-                       ))
+                   (unless (inner-dispatch pend-beh #'normal-dispatch)
+                     (go RETRY))
                    ))))
              ))
         (declare (dynamic-extent #'%send #'%become #'%abort-beh
-                                 #'%at-exit
+                                 #'normal-dispatch
                                  #'dispatch-loop))
         ;; --------------------------------------------
         
         (let ((*send-hook*      #'%send)
               (*become-hook*    #'%become)
               (*ac-become-hook* #'%become)
-              (*abort-beh-hook* #'%abort-beh)
-              (*at-exit-hook*   #'%at-exit))
+              (*abort-beh-hook* #'%abort-beh))
 
           (REPEAT
            (with-simple-restart (abort "Handle next event")
