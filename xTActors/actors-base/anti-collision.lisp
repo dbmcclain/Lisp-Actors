@@ -73,6 +73,13 @@
 
 ;; --------------------------------------------
 
+(defun do-at-exit (fn)
+  (funcall *at-exit-hook* fn))
+
+(defmacro at-exit (&body body)
+  `(do-at-exit (lambda () ,@body)))
+
+;; --------------------------------------------
 (defun %og-do-without-contention (guard thunk)
   (declare (cons guard)
            (function thunk))
