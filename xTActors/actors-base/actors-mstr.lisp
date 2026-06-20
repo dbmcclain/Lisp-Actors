@@ -354,7 +354,7 @@ THE SOFTWARE.
              (SEND-EVENT (msg)
                `(mpc:mailbox-send *central-mail* ,msg)))
     
-    (let (sends pend-beh norm-clos)
+    (let (sends pend-beh dispatch)
       (labels
           ((%send (msg)
              ;; Within one Actor invocation there can be no significance
@@ -415,7 +415,7 @@ THE SOFTWARE.
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))
                          sends      nil)
-                   (unless (discriminated-dispatch pend-beh norm-clos)
+                   (unless (funcall dispatch pend-beh)
                      (go RETRY))
                    ))))
              ))
@@ -423,7 +423,8 @@ THE SOFTWARE.
                                  #'normal-dispatch
                                  #'dispatch-loop))
         
-        (setf norm-clos #'normal-dispatch) ;; avoid dynamic CLOSE-ON-STACK in every dispatch
+        (setf dispatch (um:rcurry #'discriminated-dispatch #'normal-dispatch))
+
         ;; --------------------------------------------
         
         (let ((*send-hook*      #'%send)
