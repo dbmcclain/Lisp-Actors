@@ -306,7 +306,7 @@ THE SOFTWARE.
                                        &key fn &allow-other-keys)
   (clos:set-funcallable-instance-function beh fn))
 
-(defgeneric inner-dispatch (fn normal-dispatch-fn)
+(defgeneric discriminated-dispatch (fn normal-dispatch-fn)
   ;; These methods allow specialized behaviors to set up dynamic
   ;; control flow scaffolding (aka UNWIND-PROTECT) surrounding a
   ;; normal dispatch.
@@ -415,7 +415,7 @@ THE SOFTWARE.
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))
                          sends      nil)
-                   (unless (inner-dispatch pend-beh norm-clos)
+                   (unless (discriminated-dispatch pend-beh norm-clos)
                      (go RETRY))
                    ))))
              ))
@@ -423,7 +423,7 @@ THE SOFTWARE.
                                  #'normal-dispatch
                                  #'dispatch-loop))
         
-        (setf norm-clos #'normal-dispatch) ;; avoid dynamic CLOSURE-ON-STACK in every dispatch
+        (setf norm-clos #'normal-dispatch) ;; avoid dynamic CLOSE-ON-STACK in every dispatch
         ;; --------------------------------------------
         
         (let ((*send-hook*      #'%send)
