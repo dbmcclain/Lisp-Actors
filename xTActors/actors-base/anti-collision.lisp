@@ -144,7 +144,7 @@
   ;; left with runtime error trapping.
   ;;
   (um:with-unique-names (g!guard g!msg)
-    `(make-instance 'cf-beh
+    `(make-instance 'contention-free-behavior-function
                     :fn 
                     (let ((,g!guard (list nil)))
                       (lambda (&rest ,g!msg)

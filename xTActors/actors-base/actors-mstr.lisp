@@ -291,52 +291,50 @@ THE SOFTWARE.
 ;; Using Funcallable Instances allows us to distinguish classes of
 ;; behavior functions - so called "Typed Functions".
 ;;
-;; The CF-BEH class is intended for Contention-Free Semantics. They
-;; are relatively scarce Actor behaviors, invented after finding
-;; contention races in some Actors.
+;; The CONTENTION-FREE-BEHAVIOR-FUNCTION class is intended for Actor
+;; behaviors needing Contention-Free Semantics. They are relatively
+;; scarce Actor behaviors, invented after finding contention races in
+;; some Actors.
 ;;
 ;; So make them pay for most of the freight of their implementation.
 
-(defclass cf-beh ()
-  ((fn  :reader cf-beh-fn  :initarg :fn))
+(defclass contention-free-behavior-function ()
+  ((fn  :reader contention-free-behavior-function-fn  :initarg :fn))
   (:metaclass clos:funcallable-standard-class))
 
-(defmethod initialize-instance :after ((beh cf-beh) &key fn &allow-other-keys)
+(defmethod initialize-instance :after ((beh contention-free-behavior-function) &key fn &allow-other-keys)
   (clos:set-funcallable-instance-function beh fn))
 
-(defgeneric beh-fn-kind (fn)
-  (:method ((fn cf-beh))
-   :cf-beh)
-  (:method ((fn function))
-   :function)
-  (:method (fn)
-   nil))
-
-(defgeneric inner-dispatch (fn normal-disp)
+(defgeneric inner-dispatch (fn normal-dispatch-fn)
   ;; These methods allow specialized behaviors to set up dynamic
   ;; control flow scaffolding (aka UNWIND-PROTECT) surrounding a
   ;; normal dispatch.
-  (:method ((fn cf-beh) normal-disp)
+  (:method ((fn contention-free-behavior-function) normal-dispatch-fn)
+   #F
+   (declare (function normal-dispatch-fn))
    (let ((pend-exits  nil))
      (flet ((%at-exit (fn)
               (push fn pend-exits)))
        (declare (dynamic-extent #'%at-exit))
        (unwind-protect
            (let ((*at-exit-hook* #'%at-exit))
-             (funcall normal-disp))
+             (funcall normal-dispatch-fn))
          (when pend-exits
            (dolist (fn (the list pend-exits))
              (funcall fn)))
          ))
      ))
-  (:method ((fn function) normal-disp)
-   ;; Cost of accommodating CF-BEH's is one CLOS method dispatch and a
+  (:method ((fn function) normal-dispatch-fn)
+   ;; Cost of accommodating CONTENTION-FREE-BEHAVIOR's is one CLOS method dispatch and a
    ;; function call back to the inner dispatch routine.  -- lighter
    ;; than surrounding every message dispatch with UNWIND-PROTECT.
-   (funcall normal-disp))
+   #F
+   (declare (function normal-dispatch-fn))
+   (funcall normal-dispatch-fn))
   
-  (:method (fn normal-disp)
-   (declare (ignore normal-disp))
+  (:method (fn normal-dispatch-fn)
+   #F
+   (declare (ignore normal-dispatch-fn))
    ;; junk - just return T so we don't retry
    t
    ))
@@ -354,7 +352,7 @@ THE SOFTWARE.
              (SEND-EVENT (msg)
                `(mpc:mailbox-send *central-mail* ,msg)))
     
-    (let (sends pend-beh)
+    (let (sends pend-beh norm-clos)
       (labels
           ((%send (msg)
              ;; Within one Actor invocation there can be no significance
@@ -415,13 +413,15 @@ THE SOFTWARE.
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))
                          sends      nil)
-                   (unless (inner-dispatch pend-beh #'normal-dispatch)
+                   (unless (inner-dispatch pend-beh norm-clos)
                      (go RETRY))
                    ))))
              ))
         (declare (dynamic-extent #'%send #'%become #'%abort-beh
                                  #'normal-dispatch
                                  #'dispatch-loop))
+        
+        (setf norm-clos #'normal-dispatch) ;; does this save any cycles?
         ;; --------------------------------------------
         
         (let ((*send-hook*      #'%send)
