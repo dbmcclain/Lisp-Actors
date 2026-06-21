@@ -232,7 +232,7 @@
 
 (defmacro rd (place)
   (if (symbolp place)
-      `(rd-symbol-value ',place)
+      `(rd (symbol-value ',place))
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(car pair) ,@(cdr place))
       `(rmw-template ,place rd-gen)
@@ -240,7 +240,7 @@
 
 (defmacro rmw (place new-fn)
   (if (symbolp place)
-      `(rmw-symbol-value ',place ,new-fn)
+      `(rmw (symbol-value ',place) ,new-fn)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(cdr pair) ,@(cdr place) ,new-fn)
       `(rmw-template ,place rmw-gen ,new-fn)
