@@ -385,6 +385,9 @@ THE SOFTWARE.
    #:com.ral.actors
    #+(OR :ALLEGRO :CCL) #:com.ral.ansi-timer
    #:com.ral.usec)
+  (:import-from #:closer-mop
+   #:funcallable-standard-class
+   #:set-funcallable-instance-function)
   (:import-from #:um
    #:curry
    #:rcurry

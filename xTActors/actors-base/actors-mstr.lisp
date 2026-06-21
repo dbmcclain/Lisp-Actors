@@ -300,11 +300,11 @@ THE SOFTWARE.
 
 (defclass contention-free-behavior-function ()
   ((fn  :reader contention-free-behavior-function-fn  :initarg :fn))
-  (:metaclass clos:funcallable-standard-class))
+  (:metaclass funcallable-standard-class))
 
 (defmethod initialize-instance :after ((beh contention-free-behavior-function)
                                        &key fn &allow-other-keys)
-  (clos:set-funcallable-instance-function beh fn))
+  (set-funcallable-instance-function beh fn))
 
 (defgeneric discriminated-dispatch (fn normal-dispatch-fn)
   ;; These methods allow specialized behaviors to set up dynamic
@@ -392,7 +392,7 @@ THE SOFTWARE.
 
            (dispatch-loop ()
              ;; -------------------------------------------------------
-             ;; Think of the *current-x* global vars as dedicated
+             ;; Think of the *self-x* global vars as dedicated
              ;; registers of a special architecture CPU which uses a
              ;; FIFO queue for its instruction stream, instead of
              ;; linear memory, and which executes breadth-first

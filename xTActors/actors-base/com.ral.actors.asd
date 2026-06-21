@@ -49,4 +49,5 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :depends-on   ("com.ral.useful-macros"
                  #+:allegro "com.ral.prio-queue"
                  :optima
+                 :closer-mop
                  ))
