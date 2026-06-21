@@ -19,13 +19,26 @@
 ;; --------------------------------------------
 
 (defun %send-to-pool (msg)
+  (%initial-send-to-pool msg))
+
+(defun %ss-send-to-pool (msg)
+  (mpc:mailbox-send *central-mail* msg))
+  
+(defun %initial-send-to-pool (msg)
   (unless *central-mail*
     (mpc:with-lock (*central-mail-lock*)
       (unless *central-mail*
-        (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail"))
+        (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
+             (symbol-function '%send-to-pool) (symbol-function '%ss-send-to-pool))
         (restart-actors-system *nbr-pool*)
         )))
-  (mpc:mailbox-send *central-mail* msg))
+  (%ss-send-to-pool msg))
+
+(defun reset-send-to-pool ()
+  (setf *central-mail*  nil
+        (symbol-function '%send-to-pool) (symbol-function '%initial-send-to-pool)))
+
+;; --------------------------------------------
 
 (defun not-in-actor (&rest ignored)
   (declare (ignore ignored))

@@ -131,9 +131,11 @@
                   (lambda ()
                     ;; we are operating in the collection process
                     (comm:close-wait-state-collection ws-collection)
-                    ;; this SEND is immediate, since we are not now executing in an Actor
-                    (send cust :ok)
-                    (mpc:process-terminate (mpc:get-current-process))
+                    (mpc:funcall-async
+                     (let ((proc (mpc:get-current-process)))
+                       (lambda ()
+                         (mpc:process-terminate proc)
+                         (send-to-pool cust :ok))))
                     )))
                ))
              ))
@@ -1052,14 +1054,17 @@
             gen-srv-name        (create (gen-srv-name-beh))
             connections         (create (connections-list-beh))))
     (unless (ask async-socket-system :server-running?)
-      (send-after 1 async-socket-system sink :start-tcp-server)) ))
+      (ask async-socket-system :start-tcp-server))
+    ))
   
 (defun* lw-reset-actors-server _
   (with-default-timeout 5
     (when (ask async-socket-system :async-running?)
       (ask async-socket-system :shutdown)
+      (terpri)
       (princ "Actor Server has been shut down."))
-    (values)))
+    (values)
+    ))
 
 (defmethod restart-actors-system :after (&optional nbr-execs)
   (declare (ignore nbr-execs))

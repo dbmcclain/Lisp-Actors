@@ -162,6 +162,7 @@
      ;; Dispatch threads.
      (without-contention
       (become (custodian-beh))
+      (reset-send-to-pool)
       ))
      
     ;; --------------------------------------------
@@ -227,9 +228,9 @@
    (mpc:funcall-async
     (lambda ()
       ;; We are now running in a known non-Actor thread
-      (when (actors-running-p)
+      (if (actors-running-p)
         (mpc:with-lock (*central-mail-lock*)
-          (when (actors-running-p)
+          (if (actors-running-p)
             (let ((entries (with-timeout 1
                               (ask custodian :get-dispatchers))))
               (when entries
@@ -238,9 +239,12 @@
                 (setup-dead-man-switch (mapcar #'dispatcher-proc entries))
                 (with-timeout (* 2 *ACTORS-GRACE-PERIOD*)
                   (ask custodian 'poison-pill))))
-            (setf *central-mail* nil))
-          )))
-    )))
+            ;; else
+            (reset-send-to-pool)))
+        ;; else
+        (reset-send-to-pool))
+      ))
+   ))
 
 ;; --------------------------------------------
 ;; In case of long-running Actor behaviors...
@@ -253,7 +257,7 @@
   (let (timer)
     (labels
         ((kill-with-prejudice ()
-           (when (setf procs (delete-if (complement #'mpc:process-alive-p) procs))
+           (if (setf procs (delete-if (complement #'mpc:process-alive-p) procs))
              (cond
               ((y-or-n-p "Some dispatch threads are still running.
 Terminate them?")
@@ -264,8 +268,9 @@ Terminate them?")
                (princ "Dispatch threads were forcibly terminated."))
               
               (t
-               (launch-timer))
-              )))
+               (launch-timer)))
+             ;; else
+             (reset-send-to-pool)))
          
          (launch-timer ()
            (mpc:schedule-timer-relative timer *ACTORS-GRACE-PERIOD*)
@@ -291,6 +296,7 @@ Terminate them?")
 (mpc:atomic-exchange *central-mail* nil)
 (print *central-mail*)
 (inspect *central-mail*)
+(inspect '%send-to-pool)
 (ask custodian :get-dispatchers)
 (get-dispatch-threads)
 (setf custodian (create (custodian-beh (ask custodian :get-dispatchers))))
