@@ -385,9 +385,6 @@ THE SOFTWARE.
    #:com.ral.actors
    #+(OR :ALLEGRO :CCL) #:com.ral.ansi-timer
    #:com.ral.usec)
-  (:import-from #:closer-mop
-   #:funcallable-standard-class
-   #:set-funcallable-instance-function)
   (:import-from #:um
    #:curry
    #:rcurry
@@ -402,11 +399,6 @@ THE SOFTWARE.
    #:*self-msg-parent*
    #:*at-exit-hook*
    ))
-
-(defpackage #:com.ral.actors.types
-  (:use
-   #:common-lisp
-   #:com.ral.actors))
 
 (defpackage #:com.ral.actors.macros
   (:use

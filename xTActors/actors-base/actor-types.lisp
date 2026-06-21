@@ -3,7 +3,7 @@
 ;; DM/RAL  2022/10/24 16:56:15
 ;; ----------------------------------
 
-(in-package #:com.ral.actors.types)
+(in-package #:com.ral.actors.base)
 
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
@@ -24,13 +24,14 @@
 ;;  Actor Ref -->| Type | Beh |
 ;;               +------+-----+
 ;;                  |      |
-;;                  |      v    Closure
+;;                  |      v  Closure
 ;;                  |    +----+-------+
 ;;                  v    | Fn | State |
-;;             T(Actor)  +----+-------+  Bindings
+;;              T(Actor) +----+-------+  Bindings
 ;;                         |      |      +------+-----+-----+---
 ;;                         |      +----->| Data | ... | ... |
 ;;                         |             +------+-----+-----|---
+;;                         |    Function
 ;;                         |    +------+-----+-----+---
 ;;                         +--->| Code | ... | ... |
 ;;                              +------+-----+-----+---
@@ -77,21 +78,49 @@
 ;; Actor, we enable BECOME-SINK to free up the memory stored in their
 ;; closure bindings.
 
+(defstruct CONTENTION-FREE-BEHAVIOR
+  fn)
+
 (defstruct (actor
             (:constructor %create (beh)))
-  (beh  nil  :type (or null function)))
+  (beh  nil  :type (or null CONTENTION-FREE-BEHAVIOR function)))
 
-
-(defgeneric screened-beh (arg)
-  (:method ((arg function))
-   arg)
-  (:method ((arg actor))
-   (fwd-beh arg))
-  (:method (arg) ;; anything other than a function or an Actor becomes SINK
-   nil))
+(defun screened-beh (arg)
+  ;; Called only by CREATE and BECOME
+  (cond
+   ((or (functionp arg)
+        (contention-free-behavior-p arg))
+    arg)
+   ((actor-p arg)
+    (fwd-beh arg))
+   (t
+    nil)))  ;; anything else becomes SINK
 
 
 (defun create (&optional beh)
   (%create (screened-beh beh)))
 
-;; ----------------------------------------------------------
+
+(defun VIABLE-ACTOR? (ac)
+  ;; If an Actor becomes unviable, then it will stay unviable.
+  (and (actor-p ac)
+       (let ((beh (actor-beh ac)))
+         (or (functionp beh)
+             (contention-free-behavior-p beh))
+         )))
+
+(defun is-sink? (ac)
+  ;; used by networking code to avoid sending useless data
+  (not (viable-actor? ac)))
+
+;; ---------------------------------------
+
+(defun become (new-beh)
+  (declare (special *become-hook*))
+  (funcall *become-hook* (screened-beh new-beh)))
+
+(deflex sink nil)
+
+(defun become-sink ()
+  (become nil))
+

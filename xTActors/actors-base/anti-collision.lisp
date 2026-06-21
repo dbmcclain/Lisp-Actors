@@ -144,17 +144,16 @@
   ;; left with runtime error trapping.
   ;;
   (um:with-unique-names (g!guard g!msg)
-    `(make-instance 'contention-free-behavior-function
-                    :fn 
-                    (let ((,g!guard (list nil)))
-                      (lambda (&rest ,g!msg)
-                        (%do-with-disallowed-contention
-                         ,g!msg
-                         ,g!guard
-                         (macrolet ((without-contention (&body body)
-                                      `(%do-without-contention ,',g!guard (lambda ()
-                                                                            ,@body))
-                                      ))
-                           ,beh-fn))
-                        ))
-                    )))
+    `(make-contention-free-behavior
+      :fn (let ((,g!guard (list nil)))
+            (lambda (&rest ,g!msg)
+              (%do-with-disallowed-contention
+               ,g!msg
+               ,g!guard
+               (macrolet ((without-contention (&body body)
+                            `(%do-without-contention ,',g!guard (lambda ()
+                                                                  ,@body))
+                            ))
+                 ,beh-fn))
+              ))
+      )))

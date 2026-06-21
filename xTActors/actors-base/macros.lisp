@@ -88,13 +88,12 @@
 #+:LISPWORKS
 (editor:setup-indent "actors" 1)
 
-(defgeneric beh (x)
-  (:method ((x function))
-   x)
-  (:method ((x actor))
-   (actor-beh x))
-  (:method (x)
-   nil))
+(defun beh (x)
+  (cond
+   ((functionp x)  x)
+   ((actor-p x)    (actor-beh x))
+   (t              nil)
+   ))
 
 ;; -------------------------------------------------------
 ;;

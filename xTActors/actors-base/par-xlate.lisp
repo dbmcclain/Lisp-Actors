@@ -221,7 +221,7 @@
 ;;
 ;; -----------------------------------------------
 
-(defgeneric service (x &rest args)
+(defun service (x &rest args)
   ;; Accept an Actor, Function, or Item, along with other args.
   ;; Produce a Service Actor that expects a message containing an
   ;; eventual customer.
@@ -238,19 +238,21 @@
   ;; expects a customer in a message, and then sends x and
   ;; construction args to that customer.
   ;;
-  (:method ((ac actor) &rest args)
-   (if args
-       (apply #'racurry ac args)
-     ac))
-  (:method ((fn function) &rest args)
+  (cond
+   ((actorp x)
+    (if args
+        (apply #'racurry x args)
+      x))
+  ((functionp x)
    (create
     (alambda
      ((cust . _)
       (send* cust (multiple-value-list
-                   (apply fn args))))
+                   (apply x args))))
      )))
-  (:method (x &rest args)
-   (apply #'const x args)))
+  (t
+   (apply #'const x args))
+  ))
 
 ;; ----------------------------------------
 

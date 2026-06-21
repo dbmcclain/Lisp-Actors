@@ -36,22 +36,6 @@ THE SOFTWARE.
 
 ;; --------------------------------------
 
-(deflex sink nil)
-
-(defgeneric VIABLE-ACTOR? (ac)
-  (:method ((ac actor))
-   ;; If an Actor becomes unviable, then it will stay unviable.
-   (functionp (actor-beh ac)))
-  (:method (ac)
-   nil))
-
-(defun is-sink? (ac)
-  ;; used by networking code to avoid sending useless data
-  (not (viable-actor? ac)))
-
-(defun become-sink ()
-  (become nil))
-
 ;; --------------------------------------------------------
 ;; Core RUN Dispatcher for Actors
 
@@ -76,18 +60,15 @@ THE SOFTWARE.
       chains, except those needed along an activation chain of interest.)
 |#
 
-(defgeneric msg (target args)
-  (:method ((target actor) (args list))
-   (list* self-msg-parent target args)))
+(defun msg (target args)
+   (list* self-msg-parent target args))
 
 ;; --------------------------------------------
 
-(defgeneric send-to-pool (target &rest msg)
-  (:method ((target actor) &rest msg)
+(defun send-to-pool (target &rest msg)
+  (when (viable-actor? target)
    ;; the default SEND for foreign (non-Actor) threads
-   (when (VIABLE-ACTOR? target)
-     (%send-to-pool (msg target msg))))
-  (:method (target &rest msg)))
+   (%send-to-pool (msg target msg))))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -104,11 +85,9 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defgeneric send (target &rest msg)
-  (:method ((target actor) &rest msg)
-   (when (VIABLE-ACTOR? target)
-     (funcall *send-hook* (msg target msg))))
-  (:method (target &rest msg)))
+(defun send (target &rest msg)
+  (when (viable-actor? target)
+    (funcall *send-hook* (msg target msg))))
 
 (defun send* (&rest args)
   ;; when last arg is a list that you want destructed
@@ -119,11 +98,6 @@ THE SOFTWARE.
 
 (defun send-combined-msg (target msg1 msg2)
   (multiple-value-call #'send target (values-list msg1) (values-list msg2)))
-
-;; ---------------------------------------
-
-(defun become (new-beh)
-  (funcall *become-hook* (screened-beh new-beh)))
 
 ;; -----------------------------------
 ;; In an Actor, (ABORT-BEH) undoes any BECOME and SENDS to this point,
@@ -291,54 +265,36 @@ THE SOFTWARE.
 ;; Using Funcallable Instances allows us to distinguish classes of
 ;; behavior functions - so called "Typed Functions".
 ;;
-;; The CONTENTION-FREE-BEHAVIOR-FUNCTION class is intended for Actor
-;; behaviors needing Contention-Free Semantics. They are relatively
-;; scarce Actor behaviors, invented after finding contention races in
-;; some Actors.
+;; The CONTENTION-FREE-BEHAVIOR class is intended for Actor behaviors
+;; needing Contention-Free Semantics. They are relatively scarce Actor
+;; behaviors, invented after finding contention races in some Actors.
 ;;
 ;; So make them pay for most of the freight of their implementation.
 
-(defclass contention-free-behavior-function ()
-  ((fn  :reader contention-free-behavior-function-fn  :initarg :fn))
-  (:metaclass funcallable-standard-class))
+(defun discriminated-dispatch (beh normal-dispatch-fn)
+  ;; Allow specialized behaviors to set up dynamic control flow
+  ;; scaffolding (aka UNWIND-PROTECT) surrounding a normal dispatch.
+  #F
+  (declare (function normal-dispatch-fn))
+  (cond
+   ((functionp beh)
+    (funcall normal-dispatch-fn beh))
+   
+   ((contention-free-behavior-p beh)
+    (let ((pend-exits  nil))
+      (flet ((%at-exit (fn)
+               (push fn pend-exits)))
+        (declare (dynamic-extent #'%at-exit))
+        (unwind-protect
+            (let ((*at-exit-hook* #'%at-exit))
+              (funcall normal-dispatch-fn (contention-free-behavior-fn beh)))
+          (when pend-exits
+            (dolist (fn (the list pend-exits))
+              (funcall fn)))
+          ))
+      ))
 
-(defmethod initialize-instance :after ((beh contention-free-behavior-function)
-                                       &key fn &allow-other-keys)
-  (set-funcallable-instance-function beh fn))
-
-(defgeneric discriminated-dispatch (fn normal-dispatch-fn)
-  ;; These methods allow specialized behaviors to set up dynamic
-  ;; control flow scaffolding (aka UNWIND-PROTECT) surrounding a
-  ;; normal dispatch.
-  (:method ((fn contention-free-behavior-function) normal-dispatch-fn)
-   #F
-   (declare (function normal-dispatch-fn))
-   (let ((pend-exits  nil))
-     (flet ((%at-exit (fn)
-              (push fn pend-exits)))
-       (declare (dynamic-extent #'%at-exit))
-       (unwind-protect
-           (let ((*at-exit-hook* #'%at-exit))
-             (funcall normal-dispatch-fn))
-         (when pend-exits
-           (dolist (fn (the list pend-exits))
-             (funcall fn)))
-         ))
-     ))
-  (:method ((fn function) normal-dispatch-fn)
-   ;; Cost of accommodating CONTENTION-FREE-BEHAVIOR's is one CLOS
-   ;; method dispatch and a function call back to the inner dispatch
-   ;; routine.  -- lighter than surrounding every message dispatch
-   ;; with UNWIND-PROTECT.
-   #F
-   (declare (function normal-dispatch-fn))
-   (funcall normal-dispatch-fn))
-  
-  (:method (fn normal-dispatch-fn)
-   #F
-   (declare (ignore normal-dispatch-fn))
-   ;; junk - just return T so we don't retry
-   t
+   (t)     ;; was junk - just return T so we don't retry
    ))
 
 ;; --------------------------------------------
@@ -368,11 +324,12 @@ THE SOFTWARE.
              (setf pend-beh *self-beh*
                    sends    nil))
 
-           (normal-dispatch ()
+           (normal-dispatch (fn)
+             (declare (function fn))
              (let ((*self-beh* pend-beh))
                ;; ---------------------------------
                ;; Dispatch to Actor behavior with message args
-               (apply (the function pend-beh) (the list *self-msg*))
+               (apply fn (the list *self-msg*))
                
                ;; ---------------------------------
                ;; Commit BECOME and SENDS
@@ -441,33 +398,31 @@ THE SOFTWARE.
 (defun run-actor-dispatch-loop (done-ptr)
   (with-simple-restart (abort "Terminate Actor thread")
     (actor-dispatch-loop nil done-ptr)))
+
+(defun run-ask (actor &rest message)
+  #F
+  ;; Run an Actor dispatcher while awaiting an answer. We tell the
+  ;; dispatch loop to pause to check every *ASK-TIMEOUT* seconds
+  ;; while waiting for messages to dispatch. The loop checks a shared
+  ;; DONE cell whose CAR will be non-NIL when an answer has arrived.
   
-(defgeneric run-ask (actor &rest message)
-  (:method ((actor actor) &rest message)
-   ;; Run an Actor dispatcher while awaiting an answer. We tell the
-   ;; dispatch loop to pause to check every *ASK-TIMEOUT* seconds
-   ;; while waiting for messages to dispatch. The loop checks a shared
-   ;; DONE cell whose CAR will be non-NIL when an answer has arrived.
-   #F
-   (let* ((done nil)
-          (me   (once
-                 (create
-                  (lambda* msg
-                    (setf done (list msg))))
-                 )))
-     ;; NOTE: If you have no *TIMEOUT*, and the Actor target becomes
-     ;; SINK along the way, (or otherwise, fails to respond), you will
-     ;; become permanently stuck running Dispatch duty, and never
-     ;; return back to the caller of ASK.
-     (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
-     (apply #'send-to-pool actor me message)
-     (with-simple-restart (abort "Terminate ASK")
-       (actor-dispatch-loop *ASK-TIMEOUT* (um:pointer-& done)))
-     (when done
-       (values (car done) t))
-     ))
-  (:method (actor &rest message)
-   (values nil t)))
+  (let* ((done nil)
+         (me   (once
+                (create
+                 (lambda* msg
+                   (setf done (list msg))))
+                )))
+    ;; NOTE: If you have no *TIMEOUT*, and the Actor target becomes
+    ;; SINK along the way, (or otherwise, fails to respond), you will
+    ;; become permanently stuck running Dispatch duty, and never
+    ;; return back to the caller of ASK.
+    (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
+    (apply #'send-to-pool actor me message)
+    (with-simple-restart (abort "Terminate ASK")
+      (actor-dispatch-loop *ASK-TIMEOUT* (um:pointer-& done)))
+    (when done
+      (values (car done) t))
+    ))
 
 ;; ----------------------------------------------------------------
 ;; Error Handling
@@ -596,36 +551,39 @@ THE SOFTWARE.
 
 ;; --------------------------------------------
 
-(defgeneric ask (target &rest msg)
-  (:method ((target actor) &rest msg)
-   ;; Unlike SEND, ASKs are not staged, and perform immediately,
-   ;; potentially violating transactional boundaries. From non-Actor
-   ;; code, this is normally okay, and expected behavior. ASK behaves
-   ;; like a function call.
-   ;;
-   ;; But if called from within an Actor, the immediacy violates
-   ;; transactional boundaries, since SEND is normally staged for
-   ;; execution at successful exit, or discarded if errors.
-   (when (VIABLE-ACTOR? target)
-     (when self
-       (warn 'recursive-ask))
-     (unless *timeout*
-       (warn 'dangerous-ask))
-     
-     ;; In normal situation, we get back the result message as a list and
-     ;; flag t.  In exceptional situation, from restart "Terminate ASK",
-     ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
-     ;; get back list (<timeout-condiiton-object>) as ans.
-     (multiple-value-bind (ans okay)
-         (apply #'run-ask target msg)
-       (unless okay
-         (error 'terminated-ask))
-       (check-for-errors ans)
-       (values-list ans))))
-  (:method ((target function) &rest msg)
-   (apply target msg))
-  (:method (target &rest msg)
-   (values)))
+(defun ask (target &rest msg)
+  (cond
+   ((viable-actor? target)
+    ;; Unlike SEND, ASKs are not staged, and perform immediately,
+    ;; potentially violating transactional boundaries. From non-Actor
+    ;; code, this is normally okay, and expected behavior. ASK behaves
+    ;; like a function call.
+    ;;
+    ;; But if called from within an Actor, the immediacy violates
+    ;; transactional boundaries, since SEND is normally staged for
+    ;; execution at successful exit, or discarded if errors.
+    (when self
+      (warn 'recursive-ask))
+    (unless *timeout*
+      (warn 'dangerous-ask))
+    
+    ;; In normal situation, we get back the result message as a list and
+    ;; flag t.  In exceptional situation, from restart "Terminate ASK",
+    ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
+    ;; get back list (<timeout-condiiton-object>) as ans.
+    (multiple-value-bind (ans okay)
+        (apply #'run-ask target msg)
+      (unless okay
+        (error 'terminated-ask))
+      (check-for-errors ans)
+      (values-list ans)))
+
+   ((functionp target)
+    (apply target msg))
+
+   (t
+    (values))
+   ))
    
 ;;
 ;; ASK can generate errors:
