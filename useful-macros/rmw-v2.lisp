@@ -81,6 +81,7 @@
   ;; RMW functions should always be added in pairs for each accessor,
   ;; since RMW depends on RD
   (setf (gethash accessor *rmw-functions*) (cons rd-fn rmw-fn)))
+
 #|
 (setf *rmw-functions* (make-hash-table))                      
 |#
@@ -232,7 +233,7 @@
 
 (defmacro rd (place)
   (if (symbolp place)
-      `(rd (symbol-value ',place))
+      `(rd-symbol-value ',place)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(car pair) ,@(cdr place))
       `(rmw-template ,place rd-gen)
@@ -240,11 +241,12 @@
 
 (defmacro rmw (place new-fn)
   (if (symbolp place)
-      `(rmw (symbol-value ',place) ,new-fn)
+      `(rmw-symbol-value ',place ,new-fn)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(cdr pair) ,@(cdr place) ,new-fn)
       `(rmw-template ,place rmw-gen ,new-fn)
       )))
+
 
 (defmacro wr (place new)
   ;; We need to abide by the RMW protocol. An RMW might be under way,
@@ -269,14 +271,13 @@
 
 (defmacro define-rmw-functions (accessor-form)
   (destructuring-bind (accessor . args) accessor-form
-    (remhash accessor *rmw-functions*) ;; to permit redefs
     (multiple-value-bind (rd-name rmw-name) (gen-fn-names accessor)
       (with-unique-names (new-fn)
         `(progn
            (defun ,rd-name ,args
-             (rd ,accessor-form))
+             (rmw-template ,accessor-form rd-gen))
            (defun ,rmw-name (,@args ,new-fn)
-             (rmw ,accessor-form ,new-fn))
+             (rmw-template ,accessor-form rmw-gen ,new-fn))
            (add-rmw-functions ',accessor ',rd-name ',rmw-name))
         ))))
 
