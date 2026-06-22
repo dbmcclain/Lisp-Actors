@@ -29,6 +29,14 @@
                (:predicate   ,pred))
      ,dec))
 
+(defmacro make-immutable-encapsulated-type (enc pred dec)
+  `(defstruct (,enc
+               (:conc-name)
+               (:copier)
+               (:constructor ,enc (,dec))
+               (:predicate   ,pred))
+     (,dec nil :read-only t)))
+
 #|
 (make-encapsulated-type e e? d)
 

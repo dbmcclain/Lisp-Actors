@@ -754,7 +754,8 @@ THE SOFTWARE.
    #:check/lock/check
 
    #:make-encapsulated-type
-
+   #:make-immutable-encapsulated-type
+   
    #:addnew-to-plist
    #:reapply
 
