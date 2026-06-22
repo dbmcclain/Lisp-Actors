@@ -1,4 +1,4 @@
-
+;; startup.lisp
 
 (in-package #:com.ral.actors.base)
 
@@ -102,6 +102,7 @@
    ;; --------------------------------------------
    (('remove-dispatcher thread)
     ;; sent by dying Dispatch threads
+    (format t "~%Remove process ~A from custodial care." (mpc:process-name thread))
     (let ((entry (find thread dispatchers :key #'dispatcher-proc)))
       (when entry
         (become (limited-custodian-beh (remove entry dispatchers)))
@@ -109,15 +110,18 @@
    
    ;; --------------------------------------------
    ((cust 'really-shutdown)
-    (let ((new-dispatchers (remove-if (complement #'mpc:process-alive-p) dispatchers
-                                      :key #'dispatcher-proc)))
+    (let* ((trimmed         nil)
+           (new-dispatchers nil))
+      (dolist (entry dispatchers)
+        (if (mpc:process-alive-p (dispatcher-proc entry))
+            (push entry new-dispatchers)
+          (setf trimmed t)))
       (cond (new-dispatchers
              (send-to-pool self cust 'really-shutdown) ;; immediate re-send
-             (if (< (length new-dispatchers)
-                    (length dispatchers))
+             (if trimmed
                  (become (limited-custodian-beh new-dispatchers))
                ;; else
-               (unless (find (mpc:get-current-process) new-dispatchers
+               (unless (find (mpc:get-current-process) dispatchers
                              :key #'dispatcher-proc)
                  ;; we must be the ASK thread...
                  (sleep 0.1)))) ;; get out of way...
@@ -139,15 +143,15 @@
      (send cust :ok)
      (unless (find id dispatchers :key #'dispatcher-id)
        (without-contention
-        (let ((entry  (make-dispatcher
-                       :id  id)))
-          (setf (dispatcher-proc entry)
-                (mpc:process-run-function
-                 (format nil "Actor Thread #~D" id)
-                 '(:internal-server t)
-                 #'launch-dispatcher
-                 (um:pointer-& (dispatcher-done entry))
-                 ))
+        (let* ((entry  (make-dispatcher
+                       :id  id))
+               (proc   (mpc:process-run-function
+                        (format nil "Actor Thread #~D" id)
+                        '(:internal-server t)
+                        #'launch-dispatcher
+                        (um:pointer-& (dispatcher-done entry))
+                        )))
+          (setf (dispatcher-proc entry) proc)
           (become (custodian-beh (cons entry dispatchers)))
           ))))
     
@@ -173,6 +177,7 @@
     ;; --------------------------------------------
     (('remove-dispatcher thread)
      ;; sent by dying Dispatch threads
+     (format t "~%Remove process ~A from custodial care." (mpc:process-name thread))
      (without-contention
       (let ((entry (find thread dispatchers :key #'dispatcher-proc)))
         (when entry
@@ -184,10 +189,14 @@
      (without-contention
       (cond (dispatchers
              (dolist (entry dispatchers)
-               (setf (mpc:globally-accessible
-                      (dispatcher-done entry))
-                     t)
-               (let ((timer (mpc:make-timer #'mpc:process-terminate (dispatcher-proc entry)) ))
+               (setf (dispatcher-done entry) t)
+               (let ((timer (mpc:make-timer (lambda (proc)
+                                              (when (mpc:process-alive-p proc)
+                                                (format t "~%Proc ~A forcibly terminated"
+                                                        (mpc:process-name proc))
+                                                (mpc:process-terminate proc)))
+                                            (dispatcher-proc entry))
+                            ))
                  (mpc:schedule-timer-relative timer *ACTORS-GRACE-PERIOD*)))
              (become (limited-custodian-beh dispatchers))
              (send self cust 'really-shutdown))
@@ -213,7 +222,7 @@
       (run-actor-dispatch-loop done-ptr)
     (send custodian 'remove-dispatcher (mpc:get-current-process))))
 
-;; --------------------------------------------------------------
+;; --------------------------------------------
 ;; User-level Functions
 
 (defun actors-running-p ()
@@ -249,23 +258,25 @@
          (ask custodian 'ensure-executives nbr-execs)))
      )))
 
+(defun execute-in-non-Actor-thread (fn &rest args)
+  (if self
+      (apply #'mpc:funcall-async fn args)
+    (apply fn args)))
+
 (defgeneric kill-actors-system ()
-  (:method :around ()
-   (when (actors-running-p)
-     (call-next-method)))
   (:method ()
-   ;; The FUNCALL-ASYNC assures that this will work, even if called
-   ;; from an Actor thread. Of course, that will also cause the Actor
-   ;; (and all others) to be killed.
-   (mpc:funcall-async
-    (lambda ()
-      ;; We are now running in a known non-Actor thread
-      (mpc:with-lock (*central-mail-lock*)
-        (when (actors-running-p)
-          (with-timeout (* 2 *ACTORS-GRACE-PERIOD*)
-            (ask custodian 'shutdown)
-            ))
-        (reset-send-to-pool))
+   (when (actors-running-p)
+     ;; The FUNCALL-ASYNC assures that this will work, even if called
+     ;; from an Actor thread.
+     (execute-in-non-Actor-thread
+      (lambda ()
+        ;; We are now running in a known non-Actor thread
+        (mpc:with-lock (*central-mail-lock*)
+          (when (actors-running-p)
+            (with-timeout (* 2 *ACTORS-GRACE-PERIOD*)
+              (ask custodian 'shutdown)
+              ))
+          (reset-send-to-pool)))
       ))))
 
 #|
@@ -280,7 +291,12 @@
 #|
 (kill-actors-system)
 (restart-actors-system)
-
+(dotimes (ix 5)
+  (send (create (lambda ()
+                  (sleep 30)
+                  (format t "~%Sleeper finish")
+                  ))))
+(mpc:funcall-async #'print :hello)
 (mpc:atomic-exchange *central-mail* nil)
 (print *central-mail*)
 (inspect *central-mail*)

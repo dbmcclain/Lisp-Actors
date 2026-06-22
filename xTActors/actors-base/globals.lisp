@@ -35,8 +35,9 @@
   (%ss-send-to-pool msg))
 
 (defun reset-send-to-pool ()
-  (setf *central-mail*  nil
-        (symbol-function '%send-to-pool) (symbol-function '%initial-send-to-pool)))
+  (mpc:with-lock (*central-mail-lock*)
+    (setf *central-mail*  nil
+          (symbol-function '%send-to-pool) (symbol-function '%initial-send-to-pool))))
 
 ;; --------------------------------------------
 

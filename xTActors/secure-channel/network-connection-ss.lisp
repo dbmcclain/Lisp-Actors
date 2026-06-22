@@ -11,6 +11,7 @@
 
 (defparameter *default-port*            48896.) ;; #xBF00
 (defparameter *socket-timeout-period*   20.)
+(mpc:defglobal *server-active* nil)
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536.)
 
@@ -26,6 +27,7 @@
              (let ((ws-coll (comm:create-and-run-wait-state-collection
                              "Actor Server"
                              :handler t)))
+               (setf *server-active* t)
                (become (active-async-socket-system-beh ws-coll))
                (repeat-send self)))))
      (alambda
@@ -135,6 +137,7 @@
                      (let ((proc (mpc:get-current-process)))
                        (lambda ()
                          (mpc:process-terminate proc)
+                         (setf *server-active* nil)
                          (send-to-pool cust :ok))))
                     )))
                ))
@@ -1058,13 +1061,14 @@
     ))
   
 (defun* lw-reset-actors-server _
-  (with-default-timeout 5
-    (when (ask async-socket-system :async-running?)
-      (ask async-socket-system :shutdown)
-      (terpri)
-      (princ "Actor Server has been shut down."))
-    (values)
-    ))
+  (when *server-active*
+    (with-default-timeout 5
+      (when (ask async-socket-system :async-running?)
+        (ask async-socket-system :shutdown)
+        (terpri)
+        (princ "Actor Server has been shut down.")
+        )))
+  (values))
 
 (defmethod restart-actors-system :after (&optional nbr-execs)
   (declare (ignore nbr-execs))
