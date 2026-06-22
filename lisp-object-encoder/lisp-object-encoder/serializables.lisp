@@ -226,14 +226,11 @@ Answer:
 
 (defmethod make-serializable ((obj sets:node))
   (let ((elts  (sets:elements obj)))
-    (if (maps::map-cell-p (sets::node-v obj))
-        (let ((keys nil)
-              (vals nil))
-          (dolist (cell elts)
-            (push (maps:map-cell-key cell) keys)
-            (push (maps:map-cell-val cell) vals))
+    (if (every #'maps:map-cell-p elts)
+        (let ((keys (mapcar #'maps:map-cell-key elts))
+              (vals (mapcar #'maps:map-cell-val elts)))
           (values :RB-MAP
-                  (list  keys vals)))
+                  (list keys vals)))
       (values :RB-SET elts))
     ))
 
@@ -254,3 +251,28 @@ Answer:
                  (maps:addf tree k v))
            keys vals)
       tree)))
+
+(defmethod make-serializable ((obj sets:UE))
+  (values :UE-SETS (sets:UD obj)))
+
+(defmethod make-serializable ((obj sets:SE))
+  (values :SE-SETS (sets:SD obj)))
+
+(defmethod make-serializable ((obj maps:UE))
+  (values :UE-MAPS (maps:UD obj)))
+
+(defmethod make-serializable ((obj maps:SE))
+  (values :SE-MAPS (maps:SD obj)))
+
+
+(defmethod deserialize-type ((type (eql :UE-SETS)) data)
+  (sets:UE data))
+
+(defmethod deserialize-type ((type (eql :SE-SETS)) data)
+  (sets:SE data))
+
+(defmethod deserialize-type ((type (eql :UE-MAPS)) data)
+  (maps:UE data))
+
+(defmethod deserialize-type ((type (eql :SE-MAPS)) data)
+  (maps:SE data))
