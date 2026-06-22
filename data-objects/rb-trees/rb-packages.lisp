@@ -113,6 +113,13 @@ THE SOFTWARE.
    #:choose
    #:view-set
 
+   #:UD
+   #:UE
+   #:UE?
+   #:SD
+   #:SE
+   #:SE?
+   
    ;; privately exported for derivative packages
    #:with-node-bindings
    #:with-list-bindings
@@ -153,6 +160,7 @@ THE SOFTWARE.
    #:copy-as-unshared
    #:erase
    #:map-cell
+   #:map-cell-p
    #:map-cell-key
    #:map-cell-val
    #:empty
@@ -178,5 +186,12 @@ THE SOFTWARE.
    #:add-alist
    #:add-hashtable
    #:add-keys-vals
-   ))
+
+   #:UD
+   #:UE
+   #:UE?
+   #:SD
+   #:SE
+   #:SE?
+))
 
