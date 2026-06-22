@@ -94,11 +94,45 @@
 (defstruct dispatcher
   id proc done)
 
+(defun limited-custodian-beh (dispatchers)
+  ;; LIMITED - used during shutdown to prevent new Dispatch threads from appearing.
+  ;; Custodian holds the list of parallel Actor dispatcher threads
+  (alambda
+   
+   ;; --------------------------------------------
+   (('remove-dispatcher thread)
+    ;; sent by dying Dispatch threads
+    (let ((entry (find thread dispatchers :key #'dispatcher-proc)))
+      (when entry
+        (become (limited-custodian-beh (remove entry dispatchers)))
+        )))
+   
+   ;; --------------------------------------------
+   ((cust 'really-shutdown)
+    (let ((new-dispatchers (remove-if (complement #'mpc:process-alive-p) dispatchers
+                                      :key #'dispatcher-proc)))
+      (cond (new-dispatchers
+             (send-to-pool self cust 'really-shutdown) ;; immediate re-send
+             (if (< (length new-dispatchers)
+                    (length dispatchers))
+                 (become (limited-custodian-beh new-dispatchers))
+               ;; else
+               (unless (find (mpc:get-current-process) new-dispatchers
+                             :key #'dispatcher-proc)
+                 ;; we must be the ASK thread...
+                 (sleep 0.1)))) ;; get out of way...
+            (t
+             ;; No dispatch threads remain, we are done.
+             (become (custodian-beh))
+             (send cust :ok))
+            )))
+   ))
+
 (defun custodian-beh (&optional dispatchers)
   ;; Custodian holds the list of parallel Actor dispatcher threads
   (with-contention-free-semantics
    (alambda
-    
+
     ;; --------------------------------------------
     ((cust 'add-executive id) ;; internal routine
      (check-type id (integer 1 *))
@@ -110,7 +144,7 @@
           (setf (dispatcher-proc entry)
                 (mpc:process-run-function
                  (format nil "Actor Thread #~D" id)
-                 ()
+                 '(:internal-server t)
                  #'launch-dispatcher
                  (um:pointer-& (dispatcher-done entry))
                  ))
@@ -138,6 +172,7 @@
 
     ;; --------------------------------------------
     (('remove-dispatcher thread)
+     ;; sent by dying Dispatch threads
      (without-contention
       (let ((entry (find thread dispatchers :key #'dispatcher-proc)))
         (when entry
@@ -145,26 +180,22 @@
           ))))
     
     ;; --------------------------------------------
-    ((cust 'poison-pill)
-     ;; Try to kill off one of our Dispatchers
-     (cond (dispatchers
-            (send-to-pool self cust 'poison-pill) ;; immediate re-send
-            (unless (find (mpc:get-current-process) dispatchers
-                          :key #'dispatcher-proc)
-              (sleep 0.1))) ;; get out of way...
-           (t
-            ;; No dispatch threads remain, we are done.
-            (send cust :ok))
-           ))
-
-    (('reset-custodian)
-     ;; Sent by the dead-man switch after forcibly killing off
-     ;; Dispatch threads.
+    ((cust 'shutdown)
      (without-contention
-      (become (custodian-beh))
-      (reset-send-to-pool)
-      ))
-     
+      (cond (dispatchers
+             (dolist (entry dispatchers)
+               (setf (mpc:globally-accessible
+                      (dispatcher-done entry))
+                     t)
+               (let ((timer (mpc:make-timer #'mpc:process-terminate (dispatcher-proc entry)) ))
+                 (mpc:schedule-timer-relative timer *ACTORS-GRACE-PERIOD*)))
+             (become (limited-custodian-beh dispatchers))
+             (send self cust 'really-shutdown))
+
+            (t
+             (send cust :ok))
+            )))
+    
     ;; --------------------------------------------
     ((cust :get-dispatchers)
      (send cust dispatchers))
@@ -211,11 +242,12 @@
    ;; Users don't normally need to call this function. It is
    ;; automatically called on the first message SEND.
    (check-type nbr-execs (integer 1 *))
-   (if self
-       (send custodian sink 'ensure-executives nbr-execs)
-     (with-default-timeout 1
-       (ask custodian 'ensure-executives nbr-execs)))
-   ))
+   (mpc:with-lock (*central-mail-lock*)
+     (if self
+         (send custodian sink 'ensure-executives nbr-execs)
+       (with-default-timeout 1
+         (ask custodian 'ensure-executives nbr-execs)))
+     )))
 
 (defgeneric kill-actors-system ()
   (:method :around ()
@@ -228,57 +260,13 @@
    (mpc:funcall-async
     (lambda ()
       ;; We are now running in a known non-Actor thread
-      (if (actors-running-p)
-        (mpc:with-lock (*central-mail-lock*)
-          (if (actors-running-p)
-            (let ((entries (with-timeout 1
-                              (ask custodian :get-dispatchers))))
-              (when entries
-                (dolist (entry entries)
-                  (setf (dispatcher-done entry) t))
-                (setup-dead-man-switch (mapcar #'dispatcher-proc entries))
-                (with-timeout (* 2 *ACTORS-GRACE-PERIOD*)
-                  (ask custodian 'poison-pill))))
-            ;; else
-            (reset-send-to-pool)))
-        ;; else
+      (mpc:with-lock (*central-mail-lock*)
+        (when (actors-running-p)
+          (with-timeout (* 2 *ACTORS-GRACE-PERIOD*)
+            (ask custodian 'shutdown)
+            ))
         (reset-send-to-pool))
-      ))
-   ))
-
-;; --------------------------------------------
-;; In case of long-running Actor behaviors...
-;;
-;; If any Dispatch threads remain alive after the grace period,
-;; following a shutdown request, then we have to forcibly terminate
-;; the threads.
-
-(defun setup-dead-man-switch (procs)
-  (let (timer)
-    (labels
-        ((kill-with-prejudice ()
-           (if (setf procs (delete-if (complement #'mpc:process-alive-p) procs))
-             (cond
-              ((y-or-n-p "Some dispatch threads are still running.
-Terminate them?")
-               (dolist (proc procs)
-                 (mpc:process-terminate proc))
-               (send-to-pool custodian 'reset-custodian)
-               (terpri)
-               (princ "Dispatch threads were forcibly terminated."))
-              
-              (t
-               (launch-timer)))
-             ;; else
-             (reset-send-to-pool)))
-         
-         (launch-timer ()
-           (mpc:schedule-timer-relative timer *ACTORS-GRACE-PERIOD*)
-           ))
-      
-      (setf timer (mpc:make-timer #'mpc:funcall-async #'kill-with-prejudice))
-      (launch-timer)
-      )))
+      ))))
 
 #|
 (progn
