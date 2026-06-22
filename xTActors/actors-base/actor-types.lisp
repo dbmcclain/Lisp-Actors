@@ -78,9 +78,10 @@
 ;; Actor, we enable BECOME-SINK to free up the memory stored in their
 ;; closure bindings.
 
-(defstruct CONTENTION-FREE-BEHAVIOR
-  fn)
-
+(um:make-encapsulated-type CONTENTION-FREE-BEHAVIOR
+                           CONTENTION-FREE-BEHAVIOR-P
+                           CONTENTION-FREE-BEHAVIOR-FN)
+                           
 (defstruct (actor
             (:constructor %create (beh)))
   (beh  nil  :type (or null CONTENTION-FREE-BEHAVIOR function)))
