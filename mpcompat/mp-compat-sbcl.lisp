@@ -158,7 +158,7 @@ THE SOFTWARE.
 (defmacro with-lock ((lock &optional whostate timeout) &body body)
   "Wait for lock available, then execute the body while holding the lock."
   (declare (ignore whostate))
-  `(sb-thread:with-mutex (,lock :timeout ,timeout) ,@body))
+  `(sb-thread:with-recursive-lock (,lock :timeout ,timeout) ,@body))
 
 ;; --------------------------------------------------------------------------
 
@@ -234,16 +234,20 @@ A null timeout means wait forever."
   `(atomic-incf ,place))
 
 (defmacro atomic-exch (a b)
-  `(nyi 'atomic-exch))
+  (nyi 'atomic-exch))
+
+(defvar *system-global-lock*  (make-lock :name "Sytem Global Mutex"))
 
 (defmacro atomic-push (item lst)
-  `(nyi 'atomic-push))
+  (with-lock (*system-global-lock*)
+    (push item lst)))
 
 (defmacro atomic-pop (lst)
-  `(nyi 'atomic-pop))
+  (with-lock (*system-global-lock*)
+    (pop lst)))
 
 (defmacro globally-accessible (place)
-  `(nyi 'globally-accessible))
+  (nyi 'globally-accessible))
 
 (defun process-sharing-lock (&rest args)
   (nyi 'process-sharing-lock))
@@ -266,8 +270,8 @@ A null timeout means wait forever."
 (defmacro with-exclusive-lock ((lock &rest args) &body body)
   `(with-lock (,lock) ,@body))
 
-(defmacro with-sharing-lock ((&rest args) &body body)
-  `(nyi 'with-sharing-lock))
+(defmacro with-sharing-lock ((lock &rest args) &body body)
+  `(with-lock (,lock) ,@body))
 
 (defmacro compare-and-swap (place old new)
   `(sb-ext:compare-and-swap ,place ,old ,new))
@@ -295,7 +299,7 @@ A null timeout means wait forever."
   (sb-ext:schedule-timer timer dt))
 
 (defun process-alive-p (proc)
-  (nyi 'process-alive-p))
+  (sb-thread:thread-alive-p proc))
 
 (defun yield ()
   (sb-thread:thread-yield))

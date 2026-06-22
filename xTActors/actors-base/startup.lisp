@@ -291,11 +291,18 @@
 #|
 (kill-actors-system)
 (restart-actors-system)
-(dotimes (ix 5)
-  (send (create (lambda ()
-                  (sleep 30)
-                  (format t "~%Sleeper finish")
-                  ))))
+(progn
+  (dotimes (ix 5)
+    (send (create (lambda ()
+                    (sleep 30)
+                    (format t "~%Sleeper finish")
+                    ))))
+  (actors ((me  (lambda (ct)
+                  (when (plusp ct)
+                    (send println ct)
+                    (send me (1- ct))))))
+    (send me 15)))
+
 (mpc:funcall-async #'print :hello)
 (mpc:atomic-exchange *central-mail* nil)
 (print *central-mail*)
