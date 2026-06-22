@@ -13,13 +13,14 @@
 
 ;; ----------------------------------
 
-(defmethod with ((obj structure-object) &rest props)
-  (let* ((new  (copy-structure obj))
-         (pkg  (symbol-package (class-name (class-of obj))) ))
-    (loop for (key val) on props by #'cddr do
-            (let ((slot-name (find-symbol (symbol-name key) pkg)))
-              (setf (slot-value new slot-name) val)))
-    new))
+(defgeneric with (obj &rest props)
+  (:method ((obj structure-object) &rest props)
+   (let* ((new  (copy-structure obj))
+          (pkg  (symbol-package (class-name (class-of obj))) ))
+     (loop for (key val) on props by #'cddr do
+             (let ((slot-name (find-symbol (symbol-name key) pkg)))
+               (setf (slot-value new slot-name) val)))
+     new)))
 
 (eval-always
   (import '(closer-mop:class-slots

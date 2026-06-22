@@ -378,7 +378,7 @@ THE SOFTWARE.
 |#
 ;; ----------------------------------------------------------------------
 ;; COPY-WITH -- Structure Copying with Slot Changes
-
+#| replace by WITH  ;; DM/RAL  2026/06/22T12:08:52U
 #+:LISPWORKS
 (defun copy-with (s &rest bindings)
   (let ((new-s      (copy-structure s))
@@ -388,7 +388,7 @@ THE SOFTWARE.
         (unless (eq val new-s)
           (setf (slot-value new-s name) val))))
     ))
-          
+|#          
 
 #|
 (defstruct thing
@@ -420,21 +420,28 @@ THE SOFTWARE.
 
 ;; ----------------------------------------------------------------------
 
-(defmacro! pointer-& (obj)
-  `(lambda (&optional (,g!set ',g!temp))
-     (if (eq ,g!set ',g!temp)
-       ,obj
-       (setf ,obj ,g!set))))
+(make-immutable-encapsulated-type pointer pointer? pointer-deref-fn)
 
-(defun pointer-* (addr)
-  (funcall addr))
+(defmacro! pointer-& (place)
+  `(pointer (lambda (&optional (,g!set ',g!temp))
+              (if (eq ,g!set ',g!temp)
+                  ,place
+                (setf ,place ,g!set)))))
 
-(defsetf pointer-* (addr) (val)
-  `(funcall ,addr ,val))
+(defun pointer-* (ptr)
+  (funcall (pointer-deref-fn ptr)))
 
-(defsetf pointer-& (addr) (val)
-  `(setf (pointer-* ,addr) ,val))
+(defsetf pointer-* (ptr) (val)
+  `(funcall (pointer-deref-fn ,ptr) ,val))
 
+(defsetf pointer-& (ptr) (val)
+  `(setf (pointer-* ,ptr) ,val))
+#|
+(let* ((x 15)
+       (px (pointer-& x)))
+  (setf (pointer-* px) 32)
+  x)
+|#
 ;; ----------------------------------------------------------------------
 
 (defmacro! nif (o!expr pos zero neg)

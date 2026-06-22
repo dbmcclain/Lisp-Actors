@@ -79,9 +79,9 @@ THE SOFTWARE.
 
                 (:file "list-match")
                 #+(AND :COM.RAL :LISPWORKS) (:file "ctypes")
+                (:file "encaps-type")
                 (:file "useful-macros")
                 #+:LISPWORKS (:file "editor-extensions")
-                (:file "encaps-type")
                 (:file "rmw-v2")
                 (:file "timeout")
                 (:file "zulu-time")

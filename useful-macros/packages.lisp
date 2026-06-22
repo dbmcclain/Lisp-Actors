@@ -481,8 +481,10 @@ THE SOFTWARE.
    #:fast-progn
    #:safe-progn
 
+   #:pointer?
    #:pointer-&
    #:pointer-*
+   
    #:with-fast-stack
 
    #:make-tlist
