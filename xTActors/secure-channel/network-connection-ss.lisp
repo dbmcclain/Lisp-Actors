@@ -574,7 +574,7 @@
                          ))
                       
                       (t
-                       (let+ ((new-rec  (copy-with rec
+                       (let+ ((new-rec  (with rec
                                                    :state  new-state
                                                    :sender sender))
                               (new-cnx  (replace-connection cnx-lst rec new-rec)))
@@ -657,7 +657,7 @@
                          report-ip-addrs) rec))
            (cond (custs
                   ;; waiting custs so join the crowd
-                  (let+ ((new-rec (copy-with rec
+                  (let+ ((new-rec (with rec
                                              :report-ip-addrs (adjoin report-ip-addr report-ip-addrs
                                                                       :test #'string-equal)
                                              :custs (cons cust custs)))
@@ -668,7 +668,7 @@
                   ;; no waiting list - just go
                   (unless (member report-ip-addr report-ip-addrs
                                   :test #'string-equal)
-                    (let+ ((new-rec (copy-with rec
+                    (let+ ((new-rec (with rec
                                                :report-ip-addrs (cons report-ip-addr report-ip-addrs)))
                            (new-cnx (replace-connection cnx-lst rec new-rec)))
                       (become (connections-list-beh new-cnx))
@@ -825,7 +825,7 @@
                          state
                          report-ip-addrs) rec)
                 (:slots (io-state) state)
-                (new-rec  (copy-with rec
+                (new-rec  (with rec
                                      :chan  chan
                                      :custs nil))
                 (new-cnx (replace-connection cnx-lst rec new-rec)))
