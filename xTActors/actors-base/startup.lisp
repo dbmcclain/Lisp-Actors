@@ -302,6 +302,7 @@
                     (send println ct)
                     (send me (1- ct))))))
     (send me 15)))
+(ask custodian :get-dispatchers)
 
 (mpc:funcall-async #'print :hello)
 (mpc:atomic-exchange *central-mail* nil)
