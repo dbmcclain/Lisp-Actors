@@ -260,44 +260,6 @@ THE SOFTWARE.
   (inspect *which-actor*))
 |#
 ;; --------------------------------------------
-;; Special Funcallable Class for Contention-Free Behaviors
-;; 
-;; Using Funcallable Instances allows us to distinguish classes of
-;; behavior functions - so called "Typed Functions".
-;;
-;; The CONTENTION-FREE-BEHAVIOR class is intended for Actor behaviors
-;; needing Contention-Free Semantics. They are relatively scarce Actor
-;; behaviors, invented after finding contention races in some Actors.
-;;
-;; So make them pay for most of the freight of their implementation.
-
-(defun discriminated-dispatch (beh normal-dispatch-fn)
-  ;; Allow specialized behaviors to set up dynamic control flow
-  ;; scaffolding (aka UNWIND-PROTECT) surrounding a normal dispatch.
-  #F
-  (declare (function normal-dispatch-fn))
-  (cond
-   ((functionp beh)
-    (funcall normal-dispatch-fn beh))
-   
-   ((contention-free-behavior-p beh)
-    (let ((pend-exits  nil))
-      (flet ((%at-exit (fn)
-               (push fn pend-exits)))
-        (declare (dynamic-extent #'%at-exit))
-        (unwind-protect
-            (let ((*at-exit-hook* #'%at-exit))
-              (funcall normal-dispatch-fn (contention-free-behavior-fn beh)))
-          (when pend-exits
-            (dolist (fn (the list pend-exits))
-              (funcall fn)))
-          ))
-      ))
-
-   (t)     ;; was junk - just return T so we don't retry
-   ))
-
-;; --------------------------------------------
 
 (defun actor-dispatch-loop (&optional timeout done-ptr)
   #F
@@ -347,6 +309,30 @@ THE SOFTWARE.
                    (SEND-EVENT msg)))
                t))
 
+           (discriminated-dispatch ()
+             ;; Allow specialized behaviors to set up dynamic control flow
+             ;; scaffolding (aka UNWIND-PROTECT) surrounding a normal dispatch.
+             (cond
+              ((functionp pend-beh)
+               (normal-dispatch pend-beh))
+              
+              ((contention-free-behavior-p pend-beh)
+               (let ((pend-exits  nil))
+                 (flet ((%at-exit (fn)
+                          (push fn pend-exits)))
+                   (declare (dynamic-extent #'%at-exit))
+                   (unwind-protect
+                       (let ((*at-exit-hook* #'%at-exit))
+                         (normal-dispatch (contention-free-behavior-fn pend-beh)))
+                     (when pend-exits
+                       (dolist (fn (the list pend-exits))
+                         (funcall fn)))
+                     ))
+                 ))
+              
+              (t)     ;; was junk - just return T so we don't retry
+              ))
+
            (dispatch-loop ()
              ;; -------------------------------------------------------
              ;; Think of the *self-x* global vars as dedicated
@@ -372,7 +358,7 @@ THE SOFTWARE.
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))
                          sends      nil)
-                   (unless (funcall dispatch pend-beh)
+                   (unless (funcall dispatch)
                      (go RETRY))
                    ))))
              ))
