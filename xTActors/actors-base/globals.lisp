@@ -16,8 +16,28 @@
 (mpc:defglobal *ASK-TIMEOUT*          0.1)  ;; period of goal checking
 (mpc:defglobal *actors-grace-period*  5f0)  ;; period before forced shutdown termination
 
+;; --------------------------------------------
+
 (defun %send-to-pool (msg)
   (%initial-send-to-pool msg))
+
+(defun %ss-send-to-pool (msg)
+  (mpc:mailbox-send *central-mail* msg))
+  
+(defun %initial-send-to-pool (msg)
+  (unless *central-mail*
+    (mpc:with-lock (*central-mail-lock*)
+      (unless *central-mail*
+        (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
+             (symbol-function '%send-to-pool) (symbol-function '%ss-send-to-pool))
+        (restart-actors-system *nbr-pool*)
+        )))
+  (%ss-send-to-pool msg))
+
+(defun reset-send-to-pool ()
+  (mpc:with-lock (*central-mail-lock*)
+    (setf *central-mail*  nil
+          (symbol-function '%send-to-pool) (symbol-function '%initial-send-to-pool))))
 
 ;; --------------------------------------------
 
@@ -88,27 +108,4 @@ SELF-MSG-PARENT = Parent message frame for current message (used for message tra
 |#
 
 ;; --------------------------------------------
-
-(defun %ss-send-to-pool (msg)
-  (mpc:mailbox-send *central-mail* msg))
-  
-(defun execute-in-non-Actor-thread (fn &rest args)
-  (if self
-      (apply #'mpc:funcall-async fn args)
-    (apply fn args)))
-
-(defun %initial-send-to-pool (msg)
-  (unless *central-mail*
-    (mpc:with-lock (*central-mail-lock*)
-      (unless *central-mail*
-        (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
-             (symbol-function '%send-to-pool) (symbol-function '%ss-send-to-pool))
-        (restart-actors-system *nbr-pool*)
-        )))
-  (%ss-send-to-pool msg))
-
-(defun reset-send-to-pool ()
-  (mpc:with-lock (*central-mail-lock*)
-    (setf *central-mail*  nil
-          (symbol-function '%send-to-pool) (symbol-function '%initial-send-to-pool))))
 
