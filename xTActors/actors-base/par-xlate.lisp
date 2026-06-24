@@ -239,7 +239,7 @@
   ;; construction args to that customer.
   ;;
   (cond
-   ((actorp x)
+   ((actor-p x)
     (if args
         (apply #'racurry x args)
       x))

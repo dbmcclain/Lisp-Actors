@@ -166,10 +166,13 @@ THE SOFTWARE.
    #:send-to-all
    #:send-all-to
    #:race
+   #:one-of
+   #:alt-with-nak
+   #:wrap
    #:fwd
    #:label
    #:tag
-   ;; #:once-tag
+   #:once-tag
    ;; #:timed-tag
    ;; #:timed-once-tag
    ;; #:timed-once-tag-with-ka

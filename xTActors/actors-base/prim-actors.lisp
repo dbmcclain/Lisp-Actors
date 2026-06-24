@@ -327,11 +327,132 @@ customer, just one time."
 ;; ---------------------
 
 (defun race (&rest actors)
+  ;; Getting an answer from whichever actor responds first to the same
+  ;; message
   (create
    (behav (cust &rest msg)
      (let ((gate (once cust)))
        (apply #'send-to-all actors gate msg)))
    ))
+
+(defun running-one-of-beh (&rest active)
+  ;; Sends result from successful channel and :NOK to all other
+  ;; waiting customers.
+  (alambda
+   ((atag . ans)
+    (let* ((pair (assoc atag active))
+           (cust (cdr pair)))
+      (send* cust ans)
+      (become-sink)))
+   ))
+
+(defmacro one-of (&rest msgs)
+  ;; Getting an answer from whichever send generates a response first.
+  ;; Messages may all be different, and customers may all be
+  ;; different. Only one response is accepted.
+  ;;
+  ;; But whichever message generates a response first, that is the
+  ;; response delivered to one of the customers. The other customers
+  ;; are left dangling. If that isn't what you want, then see
+  ;; ALT-WITH-NAK below.
+  ;;
+  (um:with-unique-names (gate)
+    (let* ((custs (mapcar #'third msgs))
+           (cust  (car custs)))
+      (if (every (um:curry #'equalp cust) custs)
+          `(let ((,gate  (once ,cust)))
+             ,@(mapcar #`(,@(um:take 2 a1) ,gate ,@(um:drop 3 a1)) msgs))
+        ;; else
+        (let ((tags  (mapcar (lambda (x)
+                               (declare (ignore x))
+                               (gensym (string :tag)))
+                             msgs)))
+          `(actors (,@(mapcar #`(,a1 (tag ,gate)) tags)
+                    (,gate  (create
+                             (running-one-of-beh ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
+                             )))
+             ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags))
+          ))
+      )))
+#|
+Example:
+(one-of
+ (send chan1 cust :mess1)
+ (send chan2 cust :mess13)
+ ...)
+=>
+(LET ((#:GATE14654 (ONCE CUST)))
+  (SEND CHAN1 #:GATE14654 :MESS1)
+  (SEND CHAN2 #:GATE14654 :MESS13)
+  ...)
+|#
+
+(defun running-alt-beh (&rest active)
+  ;; Sends result from successful channel and :NOK to all other
+  ;; waiting customers.
+  (alambda
+   ((atag . ans)
+    (let* ((pair (assoc atag active))
+           (cust (cdr pair)))
+      (send* cust ans)
+      (dolist (ent active)
+        (let ((cust′ (cdr ent)))
+          (unless (eq cust′ cust)
+            (send cust′ :nok))))
+      (become-sink)
+      ))
+   ))
+
+(defmacro alt-with-nak (&rest msgs)
+  ;; Allow only the first responder, pass along its response to its customer,
+  ;; and pass along :NOK to all other customers in this race.
+  (um:with-unique-names (gate)
+    (let ((custs (mapcar #'third msgs))
+          (tags  (mapcar (lambda (x)
+                           (declare (ignore x))
+                           (gensym (string :tag)))
+                         msgs)))
+      `(actors (,@(mapcar #`(,a1 (tag ,gate)) tags)
+                (,gate  (create
+                         (running-alt-beh ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
+                         )))
+         ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags))
+      )))
+#|
+Example
+(alt-with-nak
+ (send chan1 cust1 :mess1)
+ (send chan2 cust2 :mess13)
+ ...)
+=>
+(ACTORS ((#:TAG14722 (TAG #:GATE14721))
+         (#:TAG14723 (TAG #:GATE14721))
+         ...
+         (#:GATE14721
+          (CREATE (RUNNING-ALT-BEH (LIST (CONS #:TAG14722 CUST1)
+                                         (CONS #:TAG14723 CUST2))))))
+  (SEND CHAN1 #:TAG14722 :MESS1)
+  (SEND CHAN2 #:TAG14723 :MESS13)
+  ...)
+|#
+
+;; --------------------------------------------
+;; Wrapping a customer with a handler. If a response is :NOK or
+;; +TIMED-OUT+, then the handler is prodded with a null message.
+;; Otherwise the normal response is passed along to the customer. Only
+;; one response is permitted.
+
+(defun wrap (cust handler)
+  (once
+   (create
+    (alambda
+     ((:nok)
+      (send handler))
+     ((ans) / (eq ans +timed-out+)
+      (send handler))
+     (ans
+      (send* cust ans))
+     ))))
 
 ;; --------------------------------------------
 

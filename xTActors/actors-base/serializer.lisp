@@ -233,6 +233,13 @@ prefixed by our unique SELF identity"
      (send* cust self msg))
    ))
 
+(defun once-tag (cust)
+  (create
+   (behav msg
+     (send* cust self msg)
+     (become-sink))
+   ))
+
 ;; ---------------------
 
 (defun serializer (svc)
