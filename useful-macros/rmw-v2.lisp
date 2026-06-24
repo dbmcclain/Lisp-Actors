@@ -49,7 +49,7 @@
 ;;
 ;; So there can be no ABA problems in Lisp.
 ;;
-----------------------------------------------------------
+;; ----------------------------------------------------------
 ;; The 2-phase CAS protocol -- used by lock-free algorithms to help
 ;; speed along forward progress.
 ;;
