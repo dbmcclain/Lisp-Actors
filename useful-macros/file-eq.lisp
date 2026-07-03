@@ -32,7 +32,6 @@
 	   (dev (find-if (finder "st_dev=") items))
 	   (ino (find-if (finder "st_ino=") items)))
       (values dev ino))))
-|#
 
 #+:LISPWORKS
 (defun um:get-ino (fname)
@@ -42,6 +41,15 @@
         (values (format nil "~X" (sys:file-stat-device stat))
                 (format nil "~X" (sys:file-stat-inode  stat)))
         ))))
+|#
+
+#+:LISPWORKS
+(defun um:get-ino (fname)
+  (let ((stat  (sys:get-file-stat fname)))
+    (when stat
+      (values (sys:file-stat-device stat)
+              (sys:file-stat-inode  stat))
+      )))
 
 #+:SBCL
 (defun file-string (filename)
@@ -119,8 +127,8 @@
       (um:get-ino fname1)
     (multiple-value-bind (dev2 ino2)
         (um:get-ino fname2)
-      (and (string-equal dev1 dev2)
-           (string-equal ino1 ino2))
+      (and (equalp dev1 dev2)
+           (equalp ino1 ino2))
       )))
 
 (defun um:file-time-to-utc (time)
