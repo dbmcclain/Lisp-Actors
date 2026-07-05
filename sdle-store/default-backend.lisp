@@ -592,12 +592,27 @@
 |# ;; --- end of Stupid list econimizations --- ;;
 ;; ================================================================
 
+(defun dump-proper-list (list stream)
+  (output-type-code +proper-list-code+ stream)
+  (store-count (length list) stream)
+  (dolist (x list)
+    (store-object x stream)))
+
+(defrestore-sdle-store (proper-list stream)
+  (let* ((nel  (read-count stream))
+         (lst  (make-list nel)))
+    (resolving-object (obj lst)
+      (dotimes (ix nel)
+        (let ((pos ix))
+          (setting (nth pos obj) (restore-object stream)))))
+    lst))
+
 (defun dump-tree (list stream)
   (output-type-code +tree-code+ stream)
   (store-object (car list) stream)
   (store-object (cdr list) stream))
 
-(defun restore-tree (stream)
+(defrestore-sdle-store (tree stream)
   (let* ((cell (list nil))
          (hd   (restore-object stream))
          (tl   (restore-object stream)))
@@ -607,11 +622,13 @@
     cell))
 
 (defstore-sdle-store (list cons stream)
-  (warn "SDLE-STORE called on raw LIST.")
-  (dump-tree list stream))
-
-(defrestore-sdle-store (tree stream)
-  (restore-tree stream))
+  (if (alexandria:proper-list-p list)
+      (dump-proper-list list stream)
+    (progn
+      (warn "SDLE-STORE called on raw LIST.")
+      ;; (break)
+      (dump-tree list stream))
+    ))
 
 ;; -------------------------------------------------------
 

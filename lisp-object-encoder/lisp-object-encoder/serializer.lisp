@@ -964,10 +964,12 @@ removed by preprocessing the data.
        (enc (encode str)))
   (let ((*Print-level* 10))
     (pprint (nr-linearize-tree (list str))))
-  (list (length enc)
-        (length (loenc:encode (list str)))
-        enc
-        (decode enc)))
+  (handler-bind
+      ((warning #'muffle-warning))
+    (list (length enc)
+          (length (loenc::ex-encode (list str)))
+          enc
+          (decode enc))))
 |#
 ;; --------------------------------------------
 #|
