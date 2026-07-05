@@ -74,10 +74,10 @@ maximized, and compressed storage requirements are had by not encoding
 the individual CONS cells of LIST spines.
 
   A simple test showing the encoding, both preprocessed, and raw, of
-list of 100 integers. The preprocessed octed stream requires 203
+list of 100 integers. The preprocessed octet stream requires 203
 bytes, while the raw encoding requires 302 bytes. The CONS cell spine
 of the list is fully 50% of the data size. That entire spine is
-removed by preprocessed the data.
+removed by preprocessing the data.
 
 |#
 ;; --------------------------------------------
@@ -155,6 +155,11 @@ removed by preprocessed the data.
        (eql t (array-element-type x))))
 
 (defun ensure-proper-list (lst)
+  ;; List arg may be a proper list or have a dotted tail. It must not
+  ;; contain any cycles.
+  ;;
+  ;; On exit the result is a proper list. The CDR value of a dotted
+  ;; tail is given its own CONS cell at the end of the result list.
   (um:nlet iter ((lst lst)
                  (ans nil))
     (cond ((consp lst)
@@ -197,6 +202,19 @@ removed by preprocessed the data.
 ;; --------------------------------------------
 
 (defgeneric make-serializable (obj)
+  ;;
+  ;; Methods should return 2 values:
+  ;;
+  ;;  1. a unique TYPE code (symbol or numeric), and
+  ;;  2. a data tree (list or vector) containing all the data needed
+  ;;  to reconstruct said object in the corresponding DESERIALIZE-TYPE
+  ;;  method.
+  ;;
+  ;; By default, no TYPE code is returned, and the object itself is
+  ;; returned for the data portion. You will be at the mercy of the
+  ;; more primitive SDLE-Store Octet Serializer, which cannot handle
+  ;; lists very well,
+  ;;
   (:method (obj)
    (values nil obj)))
 
@@ -438,6 +456,7 @@ removed by preprocessed the data.
     ;; seeing the second reference to an object already seen. We have
     ;; to rescan, in Pass #2, to find the first reference again, and
     ;; turn it into a DEF node.
+    ;;
     (tree-handler ((obj tree) :ret (ref-labels alts-table))
       (let* ((share?  (shareable-p obj))
              (ct      (if share? 
@@ -586,12 +605,11 @@ removed by preprocessed the data.
 
 (defun nr-linearize-tree (tree)
   ;; Non-destructive encoding
-  (multiple-value-bind (new-tree ref-labels alts-table)
-      (copy-tree-and-refer-to-shared-nodes tree)
-    (make-encoded-tree
-     :top (vector-linearize-tree
-           (label-tree-with-shared-nodes new-tree ref-labels alts-table)))
-    ))
+  (make-encoded-tree
+   :top (vector-linearize-tree
+         (multiple-value-call #'label-tree-with-shared-nodes
+           (copy-tree-and-refer-to-shared-nodes tree)))
+   ))
 
 ;; --------------------------------------------
 
@@ -799,15 +817,12 @@ removed by preprocessed the data.
           (next :stk+ obj))
          )))
     ))
-  
+
 (defun nr-reflate-tree (tree)
   ;; Non-destructive decoding
-  (multiple-value-bind (new-tree def-table)
-      (copy-tree-reflating-vectors tree)
-    (multiple-value-bind (res-tree places-table)
-        (resolve-shared-node-references new-tree def-table)
-      (resolve-user-structs res-tree places-table)
-      )))
+  (multiple-value-call #'resolve-user-structs
+    (multiple-value-call #'resolve-shared-node-references
+      (copy-tree-reflating-vectors tree))))
 
 ;; --------------------------------------------
 
