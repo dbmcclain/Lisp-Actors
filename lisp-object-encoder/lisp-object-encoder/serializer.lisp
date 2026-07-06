@@ -262,7 +262,7 @@ removed by preprocessing the data.
          (+OP-SER+  zams-ser))
 
 ;; --------------------------------------------
-;; Constant stack space routines (NR-) by using a ZAMs
+;; Constant stack space routines (NR-xxx) by using a ZAMs
 ;;
 ;; Handlers all return 2 values: the new %OPS and new %STK.
 
@@ -433,6 +433,7 @@ removed by preprocessing the data.
 (editor:setup-indent "tree-handler" 1)
 
 ;; --------------------------------------------
+;; Encoding Deflation
 
 (defun copy-tree-and-refer-to-shared-nodes (tree)
   (let ((ref-counts (make-hash-table :test #'eq))
@@ -515,7 +516,8 @@ removed by preprocessing the data.
   ;;
   ;; REF nodes were created because we saw a repeated reference. We
   ;; could not know that it was repeated unless we had seen it at
-  ;; least once before. The first look should be converted to a DEF.
+  ;; least once before. The first look should now be converted to a
+  ;; DEF.
   
   (tree-handler ((obj tree))
     (let* ((share?  (shareable-p obj))
@@ -554,8 +556,13 @@ removed by preprocessing the data.
 (defun vector-linearize-tree (tree)
   
   ;; 3rd and Final stage - convert all lists into vector structs.
-  ;; Proper lists become VEF objects.
-  ;; Improper lists become VEF* objects.
+  ;;
+  ;; No remaining lists have cyclic references. Any would-be cyclic
+  ;; references have been converted into stub REF objects with an
+  ;; integer reference ID.
+  ;;
+  ;; Proper lists become VEF objects. Improper lists (i.e., lists with
+  ;; dotted tails) become VEF* objects.
 
   (tree-handler ((obj tree))
     (cond
@@ -604,7 +611,7 @@ removed by preprocessing the data.
     ))
 
 (defun nr-linearize-tree (tree)
-  ;; Non-destructive encoding
+  ;; The main encoding function: Non-destructive encoding
   (make-encoded-tree
    :top (vector-linearize-tree
          (multiple-value-call #'label-tree-with-shared-nodes
@@ -612,14 +619,15 @@ removed by preprocessing the data.
    ))
 
 ;; --------------------------------------------
+;; Decoding Reflation
 
 (defun copy-tree-reflating-vectors (tree)
   (let ((def-table  (make-hash-table))
         (refc-table (make-hash-table :test #'eq)))
     
     ;; First pass - reinflate the VEF & VEF* objects to proper and
-    ;; improper lists, and look for DEFs, recording them in the
-    ;; def-table.
+    ;; improper lists (i.e., lists with dotted tails), and look for
+    ;; DEFs, recording them in the def-table.
     ;;
     ;; We are supposed to be cycle free. So list reflation should
     ;; terminate.
@@ -628,7 +636,7 @@ removed by preprocessing the data.
     ;;
     ;; REFC-TABLE is used to detect cycles in the tree. There should
     ;; not be any cycles. SHARE? is used to avoid reference counting
-    ;; trivial items like numbers and characters, T, and NIL.
+    ;; of trivial items like numbers and characters, T, and NIL.
     
     (tree-handler ((obj (encoded-tree-top tree)) :ret (def-table))
       (let* ((share?  (shareable-p obj))
@@ -708,10 +716,10 @@ removed by preprocessing the data.
         (*patch-table* (make-hash-table :test #'eq)))
   
     ;; Pass #2 - In the second pass we replace all the REF objects
-    ;; with the object referenced from the def-table filled in from
+    ;; with the object referenced from the DEF-TABLE filled in from
     ;; Pass #1.
     ;;
-    ;; We look for, and remove all REF. And anything else that isn't a
+    ;; We look for, and remove, all REF. Anything else that isn't a
     ;; CONS, ARRAY, OR USER-SER gets converted back to its decoded
     ;; form using LOENC:AFTER-RESTORE.
     ;;
@@ -765,10 +773,12 @@ removed by preprocessing the data.
          )))
     ))
 
+#| ;; Unused... ;; DM/RAL  2026/07/06T03:21:41U
 (defun chk-enc (obj)
   (if (encoded-p obj)
       (error "Should not be an ENCODED value: ~S" obj)
     obj))
+|#
 
 (defun resolve-user-structs (tree *fixup-table*)
   (let ((reftbl (make-hash-table :test #'eq)))
@@ -819,7 +829,7 @@ removed by preprocessing the data.
     ))
 
 (defun nr-reflate-tree (tree)
-  ;; Non-destructive decoding
+  ;; The main decoding function: Non-destructive decoding
   (multiple-value-call #'resolve-user-structs
     (multiple-value-call #'resolve-shared-node-references
       (copy-tree-reflating-vectors tree))))
