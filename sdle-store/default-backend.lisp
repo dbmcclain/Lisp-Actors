@@ -622,6 +622,25 @@
     cell))
 
 (defstore-sdle-store (list cons stream)
+  ;; Quick and dirty fixup for cases when, like serializing general
+  ;; ARRAY objects, some items, like dimensions, and element types,
+  ;; are being serialized as simple proper lists.
+  ;;
+  ;; This simple approach will not work if sublists are shared with
+  ;; other data structs. It assumes that a proper list, as a whole, is
+  ;; elemental.
+  ;;
+  ;; E.g., serializing (make-array 100
+  ;;                        :element-type '(complex double-float)
+  ;;                        :initial-element (complex 0 pi))
+  ;;
+  ;;    calls this function twice: onece for the dimension list '(100),
+  ;;    and again for the element type '(complex double-float).
+  ;;
+  ;; In general, other data lists should have been preprocessed before
+  ;; reaching this point, looking for, and converting, shared sublists
+  ;; and dotted tails.
+  ;;
   (if (alexandria:proper-list-p list)
       (dump-proper-list list stream)
     (progn

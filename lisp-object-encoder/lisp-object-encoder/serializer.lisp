@@ -333,8 +333,8 @@ removed by preprocessing the data.
       ;; and then backpatch all the places found a previous pass that reference this new object.
       (let ((new-struct (loenc:after-restore
                          (deserialize-type new-type new-data))))
-      (map nil (um:rcurry #'funcall new-struct) (gethash struct *fixup-table*))
-      (setf struct new-struct)))
+        (map nil (um:rcurry #'funcall new-struct) (gethash struct *fixup-table*))
+        (setf struct new-struct)))
      
      (t
       (setf (user-ser-type struct) new-type
