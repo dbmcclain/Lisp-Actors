@@ -116,6 +116,7 @@ THE SOFTWARE.
    #:send-combined-msg
    #:send-to-pool
    #:ask
+   #:ask-with-timeout
    
    #:self
    #:self-beh
@@ -169,6 +170,7 @@ THE SOFTWARE.
    #:one-of
    #:alt-with-nak
    #:wrap
+   #:also
    #:fwd
    #:label
    #:tag

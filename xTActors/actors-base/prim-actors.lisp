@@ -437,12 +437,12 @@ Example
 |#
 
 ;; --------------------------------------------
-;; Wrapping a customer with a handler. If a response is :NOK or
+;; Wrapping a client Actor with a handler. If a response is :NOK or
 ;; +TIMED-OUT+, then the handler is prodded with a null message.
 ;; Otherwise the normal response is passed along to the customer. Only
 ;; one response is permitted.
 
-(defun wrap (cust handler)
+(defun wrap (client handler)
   (once
    (create
     (alambda
@@ -451,8 +451,16 @@ Example
      ((ans) / (eq ans +timed-out+)
       (send handler))
      (ans
-      (send* cust ans))
+      (send* client ans))
      ))))
+
+(defun also (client handler)
+  ;; Similar to WRAP, but wraps the client Actor with an Actor that
+  ;; will forward messages to the client and also prod the handler.
+  (create
+   (lambda* msg
+     (send* client msg)
+     (send handler))))
 
 ;; --------------------------------------------
 

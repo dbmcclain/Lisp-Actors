@@ -570,6 +570,10 @@ THE SOFTWARE.
    (t
     (values))
    ))
+
+(defun ask-with-timeout (timeout target &rest msg)
+  (with-timeout timeout
+    (apply #'ask target msg)))
    
 ;;
 ;; ASK can generate errors:

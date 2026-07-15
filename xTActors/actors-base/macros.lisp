@@ -15,6 +15,7 @@
 (defmacro alambda (&rest clauses)
   (um:with-unique-names (msg)
     `(lambda (&rest ,msg)
+       (declare (list ,msg))
        (match ,msg ,@clauses))
     ))
 
