@@ -114,31 +114,31 @@
 ;; -------------------
 ;; ... and one version for them...
 
-(defmethod db-find ((tbl maps:tree) key &optional default)
+(defmethod db-find (tbl key &optional default)
   (maps:find tbl (normalize-key key) default))
 
-(defmethod db-add ((tbl maps:tree) key val)
+(defmethod db-add (tbl key val)
   (maps:add tbl (normalize-key key) val))
 
-(defmethod db-find-or-add ((tbl maps:tree) key val)
+(defmethod db-find-or-add (tbl key val)
   (let* ((nkey  (normalize-key key))
          (exist (maps:find tbl nkey tbl)))
     (if (eq exist tbl)
         (values val (maps:add tbl nkey val))
       (values exist tbl))))
 
-(defmethod db-remove ((tbl maps:tree) key)
+(defmethod db-remove (tbl key)
   (maps:remove tbl (normalize-key key)))
 
-(defmethod db-map ((tbl maps:tree) fn)
+(defmethod db-map (tbl fn)
   (maps:iter tbl fn))
 
-(defmethod db-get-keys ((tbl maps:tree))
+(defmethod db-get-keys (tbl)
   (maps:fold tbl (lambda (k v accu)
                    (declare (ignore v))
                    (cons k accu))
              nil))
 
-(defmethod db-rebuild ((tbl maps:tree))
+(defmethod db-rebuild (tbl)
   tbl)
 
