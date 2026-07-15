@@ -56,6 +56,9 @@
 (defmethod rbht-hash ((x complex))
   (cheat-to-string x))
 
+(defmethod rbht-hash ((x uuid:uuid))
+  (cheat-to-string x))
+
 (defun find-pair (tbl key)
   (with-slots (test tree) tbl
     (let* ((hkey  (rbht-hash key))

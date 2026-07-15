@@ -151,6 +151,7 @@ THE SOFTWARE.
    #:view-set
    #:with-node-bindings
    #:key-fn
+   #:is-empty
    #:removef)
   (:shadowing-import-from #:sets ;; #:com.ral.rb-trees.sets
    #:remove

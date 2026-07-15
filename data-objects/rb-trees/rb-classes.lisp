@@ -28,12 +28,12 @@
   l k v r (h 1))
 
 
-(defun height (tree)
+(defmethod height (tree)
   (if tree
       (node-h tree)
     0))
 
-(defun is-empty (tree)
+(defmethod is-empty (tree)
   (if tree
       nil
     t))

@@ -243,7 +243,8 @@
   (convert-db (maps:empty)))
 
 (defun become-pfht ()
-  (convert-db (pfht:make-hash-table)))
+  (convert-db (pfht:make-hash-table
+               :test 'equal)))
 
 #|
 (become-pfht)
