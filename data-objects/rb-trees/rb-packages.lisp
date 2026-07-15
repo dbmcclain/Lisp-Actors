@@ -82,6 +82,7 @@ THE SOFTWARE.
    #:tree
    #:empty
    #:node
+   #:node-p
    #:is-empty
    #:singleton
    #:height
@@ -139,10 +140,14 @@ THE SOFTWARE.
    #:copy-as-unshared
    #:erase
    #:singleton
-   #:is-empty
    #:mem
    #:diff
    #:cardinal
+   #:iter
+   #:fold
+   #:filter
+   #:partition
+   #:elements
    #:view-set
    #:with-node-bindings
    #:key-fn
@@ -150,7 +155,9 @@ THE SOFTWARE.
   (:shadowing-import-from #:sets ;; #:com.ral.rb-trees.sets
    #:remove
    #:union
-   #:intersection)
+   #:intersection
+   #:every
+   #:some)
   (:export
    #:tree
    #:make-shared-map
@@ -179,6 +186,11 @@ THE SOFTWARE.
    #:map
    #:mapi
    #:fold
+   #:filter
+   #:partition
+   #:elements
+   #:every
+   #:some
    #:cardinal
    #:view-set
    #:with-node-bindings
@@ -194,4 +206,33 @@ THE SOFTWARE.
    #:SE
    #:SE?
 ))
+
+(defpackage #:com.ral.rb-trees.hashtable
+  (:use #:common-lisp)
+  (:shadow
+   #:hash-table
+   #:make-hash-table
+   #:hash-table-p
+   #:hash-table-test
+   #:gethash
+   #:remhash
+   #:maphash)
+  (:export
+   #:hash-table
+   #:make-hash-table
+   #:hash-table-p
+   #:hash-table-test
+   #:gethash
+   #:remhash
+   #:maphash
+   #:add
+   #:addf
+   #:trim
+   #:trimf
+   #:stats
+   ))
+
+(project:defproject
+ (#:rbht #:com.ral.rb-trees.hashtable)
+ (#:pfht #:rbht))
 

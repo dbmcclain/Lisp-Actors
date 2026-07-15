@@ -12,45 +12,38 @@
 ;; The heights of children differ by at most 2
 ;; Tree nodes are quadruples (l v r h) where:
 ;;   - l = left child
+;;   - k = key
 ;;   - v = value
 ;;   - r = right child
 ;;   - h = node height, empty node has height 0
 ;; ----------------------------------------------------------------
 
 ;; ------------------------------------------------------
-;; Type Tree = Empty | Node(l:Tree,v:T,r:Tree,h:Fixnum)
+;; Type Tree = Empty | Node(l:Tree,k:T,v:T,r:Tree,h:Fixnum)
+;; --------------------------------------------
 
-(defclass tree ()
-  ())
+(defstruct (node ;; (:type vector)
+                 (:constructor singleton-node (k v))
+                 (:constructor %create (l k v r h)))
+  l k v r (h 1))
 
-;; -------------------------------
 
-(defclass empty (tree)
-  ()
-  (:metaclass um:singleton-class))
+(defun height (tree)
+  (if tree
+      (node-h tree)
+    0))
 
-(defmethod is-empty ((tree empty))
-  t)
+(defun is-empty (tree)
+  (if tree
+      nil
+    t))
 
-(defmethod height ((tree empty))
-  0)
+(when (vectorp (singleton-node nil nil))
+  (unless (fboundp 'node-p)
+    (let ((nel  (length (singleton-node nil nil))))
+      (defun node-p (tree)
+        (and (vectorp tree)
+             (= nel (length tree))))
+      )))
 
-(defvar +empty+
-  (make-instance 'empty))
-
-;; -------------------------------
-
-(defclass node (tree)
-  ((l  :reader node-l  :initarg :l  :type tree)
-   (v  :reader node-v  :initarg :v)
-   (r  :reader node-r  :initarg :r  :type tree)
-   (h  :reader node-h
-       :reader height  :initarg :h  :type fixnum))
-  (:default-initargs
-   :l +empty+
-   :r +empty+
-   :h 1))
-
-(defmethod is-empty ((tree node))
-  nil)
-
+           

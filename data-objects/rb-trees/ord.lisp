@@ -46,11 +46,9 @@ THE SOFTWARE.
 ;; ---------------------------------------------
 
 (defmethod ord:compare :around (a b)
-  (cond ((equal a b)
-         0)
-        (t
-         (call-next-method))
-        ))
+  (if (equal a b)
+      0
+    (call-next-method)))
 
 (defmethod compare (a b)
   (compare (type-of a) (type-of b)))

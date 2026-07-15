@@ -32,7 +32,12 @@ THE SOFTWARE.
                 (:file "ord")
                 (:file "rb-classes")
                 (:file "bal-binary-trees")
-                (:file "bal-binary-tree-maps"))
+                (:file "encapsulated-sets-unshared")
+                (:file "encapsulated-sets-shared")
+                (:file "bal-binary-tree-maps")
+                (:file "encapsulated-maps-unshared")
+                (:file "encapsulated-maps-shared")
+                (:file "rb-hashtable"))
   :serial t
   :depends-on   ("com.ral.useful-macros"
                  ))
