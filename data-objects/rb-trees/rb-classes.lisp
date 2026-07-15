@@ -18,7 +18,7 @@
 ;; ----------------------------------------------------------------
 
 ;; ------------------------------------------------------
-;; Types & Public seed constructors - EMPTY, SINGLETON
+;; Type Tree = Empty | Node(l:Tree,v:T,r:Tree,h:Fixnum)
 
 (defclass tree ()
   ())
@@ -34,6 +34,9 @@
 
 (defmethod height ((tree empty))
   0)
+
+(defvar +empty+
+  (make-instance 'empty))
 
 ;; -------------------------------
 

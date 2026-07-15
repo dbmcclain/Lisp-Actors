@@ -50,17 +50,11 @@ THE SOFTWARE.
 ;;   - h = node height, empty node has height 0
 ;; ----------------------------------------------------------------
 
-;; ------------------------------------------------------
-;; Types & Public seed constructors - EMPTY, SINGLETON
-
-(defvar +empty+
-  (make-instance 'empty))
-
 (defun empty ()
   +empty+)
 
-(declaim (inline empty))
-
+;; ------------------------------------------------------
+;; Types & Public seed constructors - EMPTY, SINGLETON
 ;; -------------------------------
 
 (defun singleton-node (x)
@@ -222,12 +216,9 @@ THE SOFTWARE.
 ;; -----------------------------------------------------------
 ;; join -- same as create and bal, but no assumptions are made on the
 ;; relative heights of l and r
-
-(defmethod join ((l empty) v r)
-  (add-min-elt r v))
-
-(defmethod join (l v (r empty))
-  (add-max-elt l v))
+;;
+;; Internal use only. On entry it is known that l,v,r satisfy an oder
+;; relation: max(l) < v < min(r).
 
 (defmethod add-min-elt ((s empty) v)
   (singleton-node v))
@@ -242,6 +233,12 @@ THE SOFTWARE.
 (defmethod add-max-elt ((s node) v)
   (with-node-bindings (l x r) s
     (bal l x (add-max-elt r v))))
+
+(defmethod join ((l empty) v r)
+  (add-min-elt r v))
+
+(defmethod join (l v (r empty))
+  (add-max-elt l v))
 
 (defmethod join ((l node) v (r node))
   ;; execute with S(Log2(N))
@@ -267,23 +264,39 @@ THE SOFTWARE.
 (defmethod min-elt ((tree node))
   ;; -> val, found-p
   ;; execute with S(1)
-  (with-node-bindings (l v) tree
-    (cond ((is-empty l)  (values v t))
-          (t             (min-elt l))
-          )))
+  (um:nlet iter ((tree tree))
+    (with-node-bindings (l v) tree
+      (if (is-empty l)
+          (values v t)
+        (go-iter l))
+      )))
 
 ;; remove-min-elt - remove the smallest element of the set
 ;; i.e., remove the leftmost node
 
+(defun never-called (fn-name)
+  (warn "Should never be called: ~A" fn-name))
+
 (defmethod remove-min-elt ((tree empty))
+  (never-called '(method remove-min-elt (empty)))
   tree)
 
 (defmethod remove-min-elt ((tree node))
-  ;; execute with S(Log2(N))
-  (with-node-bindings (l v r) tree
-    (cond ((is-empty l)  r)
-          (t             (bal (remove-min-elt l) v r))
-          )))
+  ;; execute with S(1)
+  ;; Return min-element, and rebalanced tree excluding that min-element
+  (um:nlet iter ((tree tree)
+                 (acc  nil))
+    (with-node-bindings (l v r) tree
+      (if (is-empty l)
+          (um:nlet rebuild ((minv v)
+                            (tree r)
+                            (acc  acc))
+            (if acc
+                (with-node-bindings (_ v r) (car acc)
+                  (go-rebuild minv (bal tree v r) (cdr acc)))
+              (values minv tree)))
+        (go-iter l (cons tree acc)))
+      )))
 
 ;; concat - merge two trees l and r into one.
 ;; All elements of l must precede the elements of r.
@@ -296,7 +309,7 @@ THE SOFTWARE.
   t1)
 
 (defmethod concat ((t1 node) (t2 node))
-  (join t1 (min-elt t2) (remove-min-elt t2)))
+  (multiple-value-call #'join t1 (remove-min-elt t2)))
 
 ;; ------------------------------------------------------------------------
 
@@ -306,24 +319,54 @@ THE SOFTWARE.
 (defmethod max-elt ((tree node))
   ;; -> val, found-p
   ;; execute with S(1)
-  (with-node-bindings (_ v r) tree
-    (cond ((is-empty r)  (values v t))
-          (t             (max-elt r))
-          )))
+  (um:nlet iter ((tree tree))
+    (with-node-bindings (_ v r) tree
+      (if (is-empty r)
+          (values v t)
+        (go-iter r))
+      )))
 
 ;; remove-max-elt -- remove the largest element of the set
 ;; also useful for priority-queues
 
 (defmethod remove-max-elt ((tree empty))
+  (never-called '(method remove-max-elt (empty)))
   tree)
 
 (defmethod remove-max-elt ((tree node))
-  ;; execute with S(Log2(N))
-  (with-node-bindings (l v r) tree
-    (cond ((is-empty r)  l)
-          (t             (bal l v (remove-max-elt r)))
-          )))
+  ;; execute with S(1)
+  ;; Return max-element, and new balanced tree not containing that max-element.
+  (um:nlet iter ((tree tree)
+                 (acc  nil))
+    (with-node-bindings (l v r) tree
+      (if (is-empty r)
+          (um:nlet rebuild ((maxv v)
+                            (tree l)
+                            (acc  acc))
+            (if acc
+                (with-node-bindings (l v) (car acc)
+                  (go-rebuild maxv (bal l v tree) (cdr acc)))
+              (values maxv tree)))
+        (go-iter r (cons tree acc)))
+      )))
 
+;; --------------------------------------------
+#|
+(defparameter *s* nil)
+(let* ((s  (empty)))
+  (dotimes (ix 15)
+    (addf s (random 100)))
+  (setf *s* s)
+  (inspect s))
+
+(min-elt *s*)
+(max-elt *s*)
+(inspect (multiple-value-list (remove-min-elt *s*)))
+(inspect (multiple-value-list (remove-max-elt *s*)))
+(mem *s* 32)
+(inspect (split *s* 32))
+(inspect (remove *s* 32))
+|#
 ;; ------------------------------------------------------------------------
 ;; split - (split s x) returns a triple of (values l present r)
 ;; where
@@ -380,7 +423,7 @@ THE SOFTWARE.
   ;; All elements of l must precede the elements of r
   ;; Assume height difference <= 2
   ;; (for internal use)
-  (bal t1 (min-elt t2) (remove-min-elt t2)))
+  (multiple-value-call #'bal t1 (remove-min-elt t2)))
 
 
 (defmethod remove ((tree empty) x)

@@ -73,7 +73,8 @@
                               (list (car initargs) val))
                             ))
                         (all-slots obj))))
-    (apply #'make-instance class (append props extant-props))))
+    (multiple-value-call #'make-instance class (values-list props) (values-list extant-props))
+    ))
     
 (defmethod with ((obj standard-object) &rest props)
   (apply #'copy-obj obj props))

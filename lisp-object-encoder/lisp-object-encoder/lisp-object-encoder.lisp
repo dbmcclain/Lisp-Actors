@@ -433,9 +433,19 @@ recycling that buffer for another use later. This is an attempt to avoid generat
   ;; This provides an ordering for all serializable objects.
   (let ((c (ord:compare (type-of a) (type-of b))))
     (if (zerop c)
-        (ord:compare (loenc:encode a
-                                   :max-portability t)
-                     (loenc:encode b
-                                   :max-portability t))
-      c)))
+        (let* ((aenc  (loenc:encode a :max-portability t))
+               (benc  (loenc:encode b :max-portability t))
+               (nela  (length aenc))
+               (nelb  (length benc))
+               (pos   (mismatch aenc benc)))
+          (cond ((null pos)     0)
+                ((>= pos nela) -1)
+                ((>= pos nelb)  1)
+                ((< (aref aenc pos)
+                    (aref benc pos)) -1)
+                (t  1)
+                ))
+      ;; else
+      c)
+    ))
 
