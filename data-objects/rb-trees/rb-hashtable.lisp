@@ -1,3 +1,32 @@
+;; rb-hashtable.lisp - Purely Functional Hash Table
+;;
+;; DM/RAL  2026/07/15T18:15:16U
+;;
+;; Never needs resizing nor rebuilding. But probably slower than the
+;; imperative hash tables in Lisp.
+;;
+;; SXHASH (and variants) are used on the data key, is used to derive a
+;; secondary RB-MAP key which locates an A-List of actual (key . val)
+;; pairs.  This is similar to the collision handling used by Lisp's
+;; built-in Hash Tables.
+;;
+;; The secondary SXHASH keys are FIXNUM elements with well defined
+;; ordering. So, even if the data keys have no well defined ordering,
+;; all they now need is an equality predicate that can distinguish
+;; between them.
+;;
+;; What you lose in this scheme, versus an RB-MAP if the data keys do
+;; have an order relation, is the nicely ordered processing of mapping
+;; elements in ITER and FOLD.
+;;
+;; This purely functional hash table is slower than the imperative
+;; version in Lisp. But simultaneous access by competing threads is
+;; possible without interfering with each other for
+;; adds/changes/removals - provided that the threads continue with
+;; their own table ancestry chains. Otherwise, at some point, you may
+;; need to coordinate updates of shared a global hash table.
+;;
+;; --------------------------------------------
 
 (in-package :com.ral.rb-trees.hashtable)
 
