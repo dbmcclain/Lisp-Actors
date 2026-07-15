@@ -26,6 +26,12 @@
 ;; their own table ancestry chains. Otherwise, at some point, you may
 ;; need to coordinate updates of shared a global hash table.
 ;;
+;; With FP Hash Tables you also get immediate reversion to an earlier
+;; version of the table, if you want it. The original table remains
+;; intact as long as you hold a reference to it. Copies of tables with
+;; resulting from alterations use mostly shared structure with the
+;; previous version of the table.
+;;
 ;; --------------------------------------------
 
 (in-package :com.ral.rb-trees.hashtable)
