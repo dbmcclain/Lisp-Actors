@@ -1,7 +1,8 @@
 
 ;; Select one or the other...
-(pushnew :KVDB-USE-FPLHT *features*) ;; using FPL Hashtables, keys don't need an order relation
+;; (pushnew :KVDB-USE-FPLHT *features*) ;; using FPL Hashtables, keys don't need an order relation
 ;; (pushnew :KVDB-USE-MAPS *features*)  ;; using FPL RB-Trees, keys need an order under ORD and COMPARE
+(pushnew :KVDB-USE-PFHT *features*)  ;; using RBHT:HASH-TABLE, keys don't need an order relation
 
 (asdf:defsystem "com.ral.actors.extra"
   :description "Everything is an Actor..."

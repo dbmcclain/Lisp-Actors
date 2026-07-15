@@ -242,15 +242,18 @@
 (defun become-maps ()
   (convert-db (maps:empty)))
 
+(defun become-pfht ()
+  (convert-db (pfht:make-hash-table)))
+
 #|
+(become-pfht)
 (become-fplht)
 (become-maps)
 |#
 ;; -----------------------------------------------------------
 #|
-(ask kvdb :find :dave)
-(uuid:when-created (ask kvdb :find 'version))
-(uuid:when-created (call-actor kvdb :find 'version))
+(ask-with-timeout 1 kvdb :find :dave)
+(uuid:when-created (ask-with-timeout 1 kvdb :find 'version))
 (send kvdb :show)
 
 (dotimes (ix 5)
@@ -270,9 +273,6 @@
 (let ((m (db-new)))
   (setf m (db-add m :dave :dog))
   (eql m (db-add m :dave :dog)))
-(let ((m (dn-new)))
-  (setf m (db-add m :dave))
-  (eql m (db-add m :dave)))
 
 (β (ans)
     (send kvdb β :find-or-add :bank-bal 10)

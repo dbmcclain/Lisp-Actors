@@ -87,6 +87,10 @@
 (defun db-new ()
   (maps:empty))
 
+#+:KVDB-USE-PFHT
+(defun db-new ()
+  (pfht:make-hash-table))
+
 ;; -------------------
 ;; One version for us...
 
@@ -140,5 +144,38 @@
              nil))
 
 (defmethod db-rebuild (tbl)
+  tbl)
+
+;; -------------------
+;; ... and one version for Pure Functional Hash Tables...
+
+(defmethod db-find ((tbl pfht:hash-table) key &optional default)
+  (pfht:gethash (normalize-key key) tbl default))
+
+(defmethod db-add ((tbl pfht:hash-table) key val)
+  (setf (pfht:gethash (normalize-key key) tbl) val))
+
+(defmethod db-find-or-add ((tbl pfht:hash-table) key val)
+  (let* ((nkey  (normalize-key key))
+         (exist (pfht:gethash nkey tbl tbl)))
+    (if (eq exist tbl)
+        (values val (setf (pfht:gethash nkey tbl) val))
+      (values exist tbl))))
+
+(defmethod db-remove ((tbl pfht:hash-table) key)
+  (pfht:remhash (normalize-key key) tbl))
+
+(defmethod db-map ((tbl pfht:hash-table) fn)
+  (pfht:maphash fn tbl))
+
+(defmethod db-get-keys ((tbl pfht:hash-table))
+  (let ((keys  nil))
+    (pfht:maphash (lambda (k _)
+                    (declare (ignore _))
+                    (push k keys))
+                  tbl)
+    keys))
+
+(defmethod db-rebuild ((tbl pfht:hash-table))
   tbl)
 
