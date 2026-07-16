@@ -217,6 +217,7 @@ THE SOFTWARE.
    #:hash-table-test
    #:gethash
    #:remhash
+   #:clrhash
    #:maphash)
   (:export
    #:hash-table
