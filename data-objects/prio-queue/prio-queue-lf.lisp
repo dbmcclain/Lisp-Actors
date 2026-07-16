@@ -247,7 +247,7 @@ THE SOFTWARE.
 ;; Invariant: No priority level in the tree has an empty FIFO queue
 
 (defstruct unsafe-priq 
-  (tree (maps:empty)))
+  (tree (maps:make-tree)))
 
 (defmethod addq ((q unsafe-priq) item &key prio)
   (with-slots (tree) q
