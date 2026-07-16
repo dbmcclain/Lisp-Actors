@@ -22,28 +22,47 @@
 ;; Type Tree = Empty | Node(l:Tree,k:T,v:T,r:Tree,h:Fixnum)
 ;; --------------------------------------------
 
-(defstruct (node ;; (:type vector)
-                 (:constructor singleton-node (k v))
+(defstruct tree-funcs
+  (compare-fn    nil :read-only t)
+  (replace-if-fn nil :read-only t)
+  (add           nil :read-only t)
+  (split         nil :read-only t)
+  (mem           nil :read-only t)
+  (remove        nil :read-only t)
+  (compare       nil :read-only t)
+  (subset        nil :read-only t))
+
+(defstruct (tree
+            (:constructor %make-tree (type)))
+  (type  nil :read-only t)
+  (nodes nil :read-only t))
+
+(defun invoked (fn-name tree)
+  (slot-value (tree-type tree) fn-name))
+
+(defun invoke (fn-name tree &rest args)
+  (apply (invoked fn-name tree) (tree-nodes tree) args))
+  
+(defstruct (node (:constructor singleton-node (k &optional v))
                  (:constructor %create (l k v r h)))
-  l k v r (h 1))
+  (l nil :read-only t)
+  (k nil :read-only t)
+  (v nil :read-only t)
+  (r nil :read-only t)
+  (h 1   :read-only t))
 
+(defgeneric height (tree)
+  (:method ((tree tree))
+   (height (tree-nodes tree)))
+  (:method ((x null))
+   0)
+  (:method ((x node))
+   (node-h x)))
 
-(defmethod height (tree)
-  (if tree
-      (node-h tree)
-    0))
-
-(defmethod is-empty (tree)
-  (if tree
-      nil
-    t))
-
-(when (vectorp (singleton-node nil nil))
-  (unless (fboundp 'node-p)
-    (let ((nel  (length (singleton-node nil nil))))
-      (defun node-p (tree)
-        (and (vectorp tree)
-             (= nel (length tree))))
-      )))
-
-           
+(defgeneric is-empty (tree)
+  (:method ((tree tree))
+   (is-empty (tree-nodes tree)))
+  (:method ((tree null))
+   t)
+  (:method ((tree node))
+   nil))

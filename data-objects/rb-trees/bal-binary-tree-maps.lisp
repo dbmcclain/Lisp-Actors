@@ -46,38 +46,30 @@ THE SOFTWARE.
 |#
 ;; ----------------------------------------------
 
-(defmethod add (map key val &key (replace t))
-  (sets:with-replacement-p (and replace 'true)
-    (sets:add map key val)
-    ))
-
-(define-modify-macro addf (key value &rest args)
-  add)
-
-(defmethod find (map key &optional default)
+(defmethod find ((map tree) key &optional default)
   ;; eval with contant stack space - S(1)
   (multiple-value-bind (found v) (mem map key)
     (if found
         (values v t)
-      (values default nil))))
+      default)))
 
-(defmethod mapi (map f)
+(defmethod mapi ((map tree) f)
   ;; eval with S(Log2(N))
-  (let ((new-map (empty)))
+  (let ((new-map (um:with map
+                   :nodes (empty))))
     (sets:iter map
                #'(lambda (key val)
-                   (setf new-map (add new-map key (funcall f key val))
-                         )))
+                   (addf new-map key (funcall f key val))))
     new-map))
 
-(defmethod map (map f)
+(defmethod map ((map tree) f)
   (mapi map
         #'(lambda (k v)
             (declare (ignore k))
             (funcall f v))
         ))
 
-(defmethod add-plist (map plist)
+(defmethod add-plist ((map tree) plist)
   ;; plist = alternating key,value pairs
   (um:nlet iter ((lst plist))
     (when lst
@@ -85,7 +77,7 @@ THE SOFTWARE.
       (go-iter (cddr lst)))
     map))
 
-(defmethod add-alist (map alist)
+(defmethod add-alist ((map tree) alist)
   ;; alist list of pairs (key value)
   (um:nlet iter ((lst alist))
     (when lst
@@ -93,11 +85,11 @@ THE SOFTWARE.
       (go-iter (cdr lst)))
     map))
 
-(defmethod add-hashtable (map hashtable)
+(defmethod add-hashtable ((map tree) hashtable)
   (maphash (um:curry 'addf map) hashtable)
   map)
 
-(defmethod add-keys-vals (map keys vals)
+(defmethod add-keys-vals ((map tree) keys vals)
   ;; keys and vals are lists of correspoinding key/val pairs
   (um:nlet iter ((ks keys)
                  (vs vals))
@@ -126,14 +118,14 @@ THE SOFTWARE.
 ;; ----------------------------------------------
 
 #+:LISPWORKS
-(unless (vectorp (sets::singleton-node nil nil))
-  (defmethod lispworks:get-inspector-values ((map sets:node) (mode (eql 'list-form)))
-    (declare (ignore mode))
-    (let* ((elts (sets:elements map))
-           (keys (mapcar #'car elts))
-           (vals (mapcar #'cdr elts)))
-      (values keys vals)))
+(defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'list-form)))
+  (declare (ignore mode))
+  (let* ((elts (sets:elements map))
+         (keys (mapcar #'car elts))
+         (vals (mapcar #'cdr elts)))
+    (values keys vals)))
   
-  (defmethod lispworks:get-inspector-values ((map sets:node) (mode (eql 'graph-form)))
-    (declare (ignore mode))
-    (values :graph (sets:view-set map))))
+#+:LISPWORKS
+(defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'graph-form)))
+  (declare (ignore mode))
+  (values :graph (sets:view-set map)))

@@ -6,8 +6,8 @@
 
 (um:make-encapsulated-type UE UE? UD)
 
-(defun make-unshared-map ()
-  (UE (empty)))
+(defun make-unshared-map (&optional (type sets::+default-tree-type+))
+  (UE (make-tree type)))
 
 (defmethod copy ((map UE))
   (UE (UD map)))
@@ -15,8 +15,8 @@
 (defmethod is-empty ((map UE))
   (is-empty (UD map)))
 
-(defmethod add ((map UE) key val &key (replace t))
-  (setf (UD map) (add (UD map) key val :replace replace)))
+(defmethod add ((map UE) key &optional val)
+  (setf (UD map) (add (UD map) key val)))
 
 (defmethod remove ((map UE) key)
   (setf (UD map) (remove (UD map) key)))
@@ -67,5 +67,6 @@
   (setf (UD map) (add-keys-vals (UD map) keys vals)))
 
 (defmethod erase ((map UE))
-  (setf (UD map) (empty)))
+  (setf (UD map) (um:with (UD map)
+                   :nodes (empty))))
 

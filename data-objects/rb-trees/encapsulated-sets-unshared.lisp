@@ -6,14 +6,14 @@
 
 (um:make-encapsulated-type UE UE? UD)
 
-(defun make-unshared-set ()
-  (UE (empty)))
+(defun make-unshared-set (&optional (type +default-tree-type+))
+  (UE (make-tree type)))
 
 (defmethod copy ((set UE))
   (UE (UD set)))
 
-(defmethod add ((set UE) k &optional (v k))
-  (setf (UD set) (add (UD set) k v)))
+(defmethod add ((set UE) k &optional v)
+ (addf (UD set) k v))
 
 (defmethod min-elt ((set UE))
   (min-elt (UD set)))
@@ -85,5 +85,7 @@
   (apply #'view-set (UD set) args))
 
 (defmethod erase ((set UE))
-  (setf (UD set) (empty)))
+  (setf (UD set) (um:with (UD set)
+                   :nodes (empty))))
+
 

@@ -372,6 +372,8 @@ THE SOFTWARE.
    #:select
    #:expect
    #:expect*
+
+   #:inspector
    ))
 
 #+(OR :ALLEGRO :CCL)

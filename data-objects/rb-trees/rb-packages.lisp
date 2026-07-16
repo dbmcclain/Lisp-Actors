@@ -58,7 +58,7 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.rb-trees.sets
   (:use #:common-lisp)
-  (:shadow #:remove #:union #:intersection #:every #:some)
+  (:shadow #:remove #:union #:intersection #:every #:some #:copy-tree)
   #+:LISPWORKS
   (:import-from #:lw
    #:false
@@ -73,6 +73,7 @@ THE SOFTWARE.
    #:=tlet
    #:trampoline)
   (:export
+   #:/eql
    #:make-shared-set
    #:make-unshared-set
    #:erase
@@ -80,6 +81,10 @@ THE SOFTWARE.
    #:copy-as-shared
    #:copy-as-unshared
    #:tree
+   #:tree-type
+   #:tree-nodes
+   #:make-tree
+   #:def-tree-type
    #:empty
    #:node
    #:node-p
@@ -133,13 +138,20 @@ THE SOFTWARE.
   (:import-from #:ord ;; #:com.ral.ord
    #:compare)
   (:import-from #:sets ;; #:com.ral.rb-trees.sets
+   #:/eql
    #:tree
+   #:tree-type
+   #:tree-nodes
+   #:make-tree
+   #:def-tree-type
    #:empty
    #:copy
    #:copy-as-shared
    #:copy-as-unshared
    #:erase
    #:singleton
+   #:add
+   #:addf
    #:mem
    #:diff
    #:cardinal
@@ -160,7 +172,12 @@ THE SOFTWARE.
    #:every
    #:some)
   (:export
+   #:/eql
    #:tree
+   #:tree-type
+   #:tree-nodes
+   #:make-tree
+   #:def-tree-type
    #:make-shared-map
    #:make-unshared-map
    #:copy

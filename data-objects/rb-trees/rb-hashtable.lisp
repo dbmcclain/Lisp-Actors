@@ -36,28 +36,36 @@
 
 (in-package :com.ral.rb-trees.hashtable)
 
-(defstruct hash-table
-  (test   'eql)
-  (tree   (maps:empty)))
+(defstruct (hash-table
+            (:constructor %make-hash-table))
+  (test  nil :read-only t)
+  (tree  nil :read-only t))
 
-(defmethod rbht-hash (x)
-  (sxhash x))
+(defvar +default-hash-table-tree-type+
+  (maps:def-tree-type :compare-fn    '-
+                      :replace-if-fn 'maps:/eql))
+
+(defun make-hash-table (&key (test 'eql) (type +default-hash-table-tree-type+))
+  (%make-hash-table
+   :test  test
+   :tree  (maps:make-tree type)))
+
+(defgeneric rbht-hash (x)
+  (:method (x)
+   (sxhash x))
+  (:method ((x single-float))
+   (cheat-to-string x))
+  (:method ((x double-float))
+   (cheat-to-string x))
+  (:method ((x complex))
+   (cheat-to-string x))
+  (:method ((x uuid:uuid))
+   (cheat-to-string x)))
 
 (defun cheat-to-string (x)
   (with-standard-io-syntax
     (rbht-hash (princ-to-string x))))
   
-(defmethod rbht-hash ((x single-float))
-  (cheat-to-string x))
-
-(defmethod rbht-hash ((x double-float))
-  (cheat-to-string x))
-
-(defmethod rbht-hash ((x complex))
-  (cheat-to-string x))
-
-(defmethod rbht-hash ((x uuid:uuid))
-  (cheat-to-string x))
 
 (defun find-pair (tbl key)
   (with-slots (test tree) tbl
@@ -162,6 +170,43 @@
     (addf tbl (car pair) (cdr pair)))
   ;; (inspect tbl)
   (inspect (ser:decode (ser:encode tbl)))
-  (list (lookup tbl 'tom)
+  (list (gethash 'tom tbl)
         (coerce (map 'vector #'code-char (ser:encode tbl)) 'string )))
 |#
+;; -------------------------------------------------------------
+#|
+(defparameter *tst-coll*
+  (let ((arr (make-array 1_000_000
+                         :element-type 'single-float)))
+    (dotimes (ix (length arr))
+      (setf (aref arr ix) (random 1f0)))
+    arr))
+
+(defun tst ()
+  (let ((tbl (make-hash-table)))
+    (dotimes (ix (length *tst-coll*))
+      (setf (gethash (aref *tst-coll* ix) tbl) t))
+    (maps:cardinal (hash-table-tree tbl))))
+(time (tst))
+
+(defun tsth ()
+  (let ((tbl (cl:make-hash-table)))
+    (dotimes (ix (length *tst-coll*))
+      (setf (cl:gethash (aref *tst-coll* ix) tbl) t))
+    tbl))
+(time (tsth))
+
+;; Whoa!! Hashtable is 15x faster than RB-Trees, uses 20x less alloc,
+;; and 10x less page faults
+;;
+;; Timing with (:TYPE VECTOR) NODE Struct:
+;;               μs/add       Alloc bytes    Page Faults
+;;               ------       -----------    -----------
+;;    RB-Trees:  2.8              920           0.048
+;; Hash-tables:  0.19              52           0.005
+;;
+;; Take away the (:TYPE VECTOR) in the NODE Struct:
+;;    RB-Trees:  2.2             1075           0.031
+;; Hash-tables:  0.13              53           0.004
+|#
+

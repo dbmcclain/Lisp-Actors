@@ -666,3 +666,8 @@ Example
   (create (counter-beh initial-ct)))
 
     
+;; --------------------------------------------
+
+(deflex inspector
+  (create (lambda* args
+            (inspect args))))

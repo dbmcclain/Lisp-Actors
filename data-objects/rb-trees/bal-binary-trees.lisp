@@ -134,7 +134,7 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------
 ;; add - insertion of one element
-
+#|
 (unless (fboundp 'false)
   (defun false ()
     (constantly nil)))
@@ -166,43 +166,53 @@ THE SOFTWARE.
 (defmacro with-replacement-p (tf &body body)
   `(let ((*replace-p* (ensure-function ,tf)))
      ,@body))
+|#
+;; --------------------------------------------
 
-(defmethod add (tree key &optional (val key))
-  ;; execute with S(Log2(N))
-  (if tree
-      (with-node-bindings (l k v r h) tree
-        (cond ((and (eql key k)
-                    (eql val v))
-               tree)
-              (t  (let ((c (ord:compare key k)))
-                    (declare (real c))
-                    (cond ((zerop c)
-                           ;; in zero case - to support maps (see below)
-                           ;; ensure that new map value is substituted for old
-                           ;; value - use x instead of v for value field of result.
-                           ;; This is still FP pure - it makes a new tree.
-                           (if (funcall *replace-p* k key)
-                               (%create l key val r h)
-                             tree))
-                          
-                          ((minusp c)
-                           (multiple-value-bind (new-left needs-rebal) (add l key val)
-                             (cond ((eq l new-left)  tree)
-                                   (needs-rebal      (values (bal new-left k v r) t))
-                                   (t                (create new-left k v r))
-                                   )))
-                          
-                          (t
-                           (multiple-value-bind (new-right needs-rebal) (add r key val)
-                             (cond ((eq r new-right)  tree)
-                                   (needs-rebal       (values (bal l k v new-right) t))
-                                   (t                 (create l k v new-right))
-                                   )))
-                          )))
-              ))
-    ;; else
-    (values (singleton-node key val) t)
+(defmethod add (tree key &optional val)
+  (um:with tree
+    :nodes (invoke 'add tree key val)
     ))
+
+(defun make-add-fn (compare-fn replace-fn)
+  (labels
+      ((add (tree key val)
+         ;; execute with S(Log2(N))
+         (if tree
+             (with-node-bindings (l k v r h) tree
+               (cond ((and (eql key k)
+                           (eql val v))
+                      tree)
+                     (t  (let ((c (funcall compare-fn key k)))
+                           (declare (real c))
+                           (cond ((zerop c)
+                                  ;; in zero case - to support maps (see below)
+                                  ;; ensure that new map value is substituted for old
+                                  ;; value - use x instead of v for value field of result.
+                                  ;; This is still FP pure - it makes a new tree.
+                                  (if (funcall replace-fn v val)
+                                      (%create l key val r h)
+                                    tree))
+                                 
+                                 ((minusp c)
+                                  (multiple-value-bind (new-left needs-rebal) (add l key val)
+                                    (cond ((eq l new-left)  tree)
+                                          (needs-rebal      (values (bal new-left k v r) t))
+                                          (t                (create new-left k v r))
+                                          )))
+                                 
+                                 (t
+                                  (multiple-value-bind (new-right needs-rebal) (add r key val)
+                                    (cond ((eq r new-right)  tree)
+                                          (needs-rebal       (values (bal l k v new-right) t))
+                                          (t                 (create l k v new-right))
+                                          )))
+                                 )))
+                     ))
+           ;; else
+           (values (singleton-node key val) t)
+           )))
+    #'add))
 
 (define-modify-macro addf (&rest args)
   add)
@@ -254,22 +264,26 @@ THE SOFTWARE.
 ;; min-elt -- return the value of the smallest element of the set
 ;; i.e., the value from the leftmost node
 
-(defmethod min-elt (tree)
-  ;; -> key, val, found-p
-  ;; execute with S(1)
-  (and tree
-       (um:nlet iter ((tree tree))
-         (with-node-bindings (l k v) tree
-           (if l
-               (go-iter l)
-             (values k v t))
-           ))
-       ))
+(defmethod min-elt ((tree tree))
+  (labels
+      ((min-elt (tree)
+         ;; -> key, val, found-p
+         ;; execute with S(1)
+         (and tree
+              (um:nlet iter ((tree tree))
+                (with-node-bindings (l k v) tree
+                  (if l
+                      (go-iter l)
+                    (values k v t))
+                  ))
+              )))
+    (min-elt (tree-nodes tree))
+    ))
 
 ;; remove-min-elt - remove the smallest element of the set
 ;; i.e., remove the leftmost node
 
-(defun remove-min-elt (tree)
+(defmethod remove-min-elt (tree)
   ;; execute with S(1)
   ;; Return min-element, and rebalanced tree excluding that min-element
   (um:nlet iter ((tree tree)
@@ -288,6 +302,15 @@ THE SOFTWARE.
         ))
     ))
 
+(defmethod remove-min-elt ((tree tree))
+  (multiple-value-bind (mink minv new-nodes)
+      (remove-min-elt (tree-nodes tree))
+    (values mink
+            minv
+            (um:with tree
+              :nodes new-nodes))
+    ))
+
 ;; concat - merge two trees l and r into one.
 ;; All elements of l must precede the elements of r.
 ;; No assumptions on the heights of l and r.
@@ -300,44 +323,50 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------------------------------
 
-(defmethod max-elt (tree)
-  ;; -> val, found-p
-  ;; execute with S(1)
-  (and tree
-       (um:nlet iter ((tree tree))
-         (with-node-bindings (_ k v r) tree
-           (if r
-               (go-iter r)
-             (values k v t))
-           ))
-       ))
+(defmethod max-elt ((tree tree))
+  (labels
+      ((max-elt (tree)
+         ;; -> val, found-p
+         ;; execute with S(1)
+         (and tree
+              (um:nlet iter ((tree tree))
+                (with-node-bindings (_ k v r) tree
+                  (if r
+                      (go-iter r)
+                    (values k v t))
+                  ))
+              )))
+    (max-elt (tree-nodes tree))
+    ))
 
 ;; remove-max-elt -- remove the largest element of the set
 ;; also useful for priority-queues
 
-(defun remove-max-elt (tree)
+(defmethod remove-max-elt ((tree tree))
   ;; execute with S(1)
   ;; Return max-element, and new balanced tree not containing that max-element.
-  (um:nlet iter ((tree tree)
-                 (acc  nil))
-    (with-node-bindings (l k v r) tree
-      (if r
-          (go-iter r (cons tree acc))
-        (um:nlet rebuild ((maxk k)
-                          (maxv v)
-                          (tree l)
-                          (acc  acc))
-          (if acc
-              (with-node-bindings (l k v) (car acc)
-                (go-rebuild maxk maxv (bal l k v tree) (cdr acc)))
-            (values maxk maxv tree)))
-        ))
-    ))
+  (let ((tree-arg tree))
+    (um:nlet iter ((tree (tree-nodes tree))
+                   (acc  nil))
+      (with-node-bindings (l k v r) tree
+        (if r
+            (go-iter r (cons tree acc))
+          (um:nlet rebuild ((maxk k)
+                            (maxv v)
+                            (tree l)
+                            (acc  acc))
+            (if acc
+                (with-node-bindings (l k v) (car acc)
+                  (go-rebuild maxk maxv (bal l k v tree) (cdr acc)))
+              (values maxk maxv (um:with tree-arg
+                                  :nodes tree))))
+          ))
+      )))
 
 ;; --------------------------------------------
 #|
 (defparameter *s* nil)
-(let* ((s  (empty)))
+(let* ((s  (make-tree)))
   (dotimes (ix 15)
     (addf s (random 100)))
   (setf *s* s)
@@ -365,37 +394,56 @@ THE SOFTWARE.
 ;; - present is nil if s contains no element equal to x, or else
 ;;   present is the set whose top node contains an element equal to x
 
-(defun split (tree key)
-  ;; for internal use
-  ;; execute with S(Log2(N))
-  (if tree
-      (with-node-bindings (l k v r) tree
-        (let ((c (ord:compare key k)))
-          (declare (real c))
-          (cond ((zerop c)  (list l tree r))
-                ((minusp c)
-                 (with-list-bindings (ll pres rl) (split l key)
-                   (list ll pres (join rl k v r))))
-                (t
-                 (with-list-bindings (lr pres rr) (split r key)
-                   (list (join l k v lr) pres rr)))
-                )))
-    ;; else
-    (list nil nil nil)
+(defmethod split ((tree tree) key)
+  (with-list-bindings (l present r)
+      (invoke 'split tree key)
+    (list (um:with tree
+            :nodes l)
+          present
+          (um:with tree
+            :nodes r))
     ))
+
+(defun make-split-fn (compare-fn)
+  (labels
+      ((split (tree key)
+         ;; for internal use
+         ;; execute with S(Log2(N))
+         (if tree
+             (with-node-bindings (l k v r) tree
+               (let ((c (funcall compare-fn key k)))
+                 (declare (real c))
+                 (cond ((zerop c)  (list l tree r))
+                       ((minusp c)
+                        (with-list-bindings (ll pres rl) (split l key)
+                          (list ll pres (join rl k v r))))
+                       (t
+                        (with-list-bindings (lr pres rr) (split r key)
+                          (list (join l k v lr) pres rr)))
+                       )))
+           ;; else
+           (list nil nil nil)
+           )))
+    #'split))
 
 ;; ------------------------------------------------------------------------
 
-(defmethod mem (tree key)
-  ;; execute with S(1)
-  (and tree
-       (with-node-bindings (l k v r) tree
-         (let ((c (ord:compare key k)))
-           (declare (real c))
-           (if (zerop c)
-               (values t v)
-             (mem (if (minusp c) l r) key))
-           ))))
+(defmethod mem ((tree tree) key)
+  (invoke 'mem tree key))
+
+(defun make-mem-fn (compare-fn)
+  (labels
+      ((mem (tree key)
+         ;; execute with S(1)
+         (and tree
+              (with-node-bindings (l k v r) tree
+                (let ((c (funcall compare-fn key k)))
+                  (declare (real c))
+                  (if (zerop c)
+                      (values t v)
+                    (mem (if (minusp c) l r) key))
+                  )))))
+    #'mem))
 
 ;; ------------------------------------------------------------------------
 
@@ -411,242 +459,372 @@ THE SOFTWARE.
 
 
 (defmethod remove (tree key)
-  ;; execute with S(Log2(N))
-  (when tree
-    (with-node-bindings (l k v r) tree
-      (let ((c (ord:compare key k)))
-        (declare (real c))
-        (cond ((zerop c)  (merge-trees l r))
-              ((minusp c) (bal (remove l key) k v r))
-              (t          (bal l k v (remove r key)))
-              )))))
+  (um:with tree
+    :nodes (invoke 'remove tree key)))
+
+(defun make-remove-fn (compare-fn)
+  (labels
+      ((remove (tree key)
+         ;; execute with S(Log2(N))
+         (when tree
+           (with-node-bindings (l k v r) tree
+             (let ((c (funcall compare-fn key k)))
+               (declare (real c))
+               (cond ((zerop c)  (merge-trees l r))
+                     ((minusp c) (bal (remove l key) k v r))
+                     (t          (bal l k v (remove r key)))
+                     ))))))
+    #'remove))
+
 
 (define-modify-macro removef (key)
   remove)
 
 ;; ------------------------------------------------------------------------
 
-(defmethod union (s1 s2)
-  ;; execute with S(Log2(N))
-  (cond ((null s1) s2)
-        ((null s2) s1)
-        (t  (with-node-bindings (l1 k1 v1 r1 h1) s1
-              (with-node-bindings (l2 k2 v2 r2 h2) s2
-                (cond ((>= h1 h2)
-                       (cond ((= h2 1)  (add s1 k2 v2))
-                             (t  (with-list-bindings (l2 _ r2) (split s2 k1)
-                                   (join (union l1 l2) k1 v1 (union r1 r2))))
-                             ))
-                      
-                      (t (cond ((= h1 1)  (add s2 k1 v1))
-                               (t  (with-list-bindings (l1 _ r1) (split s1 v2)
-                                     (join (union l1 l2) k2 v2 (union r1 r2))))
-                               ))
-                      ))))
-        ))
+(defun check-same-type (s1 s2)
+  (assert (eq (tree-type s1)
+              (tree-type s2))))
+
+(defmethod union ((s1 tree) (s2 tree))
+  (check-same-type s1 s2)
+  (let ((split-fn  (invoked 'split s1)))
+    (labels
+        ((split (s k)
+           (funcall split-fn s k))
+         (union (s1 s2)
+           ;; execute with S(Log2(N))
+           (cond ((null s1) s2)
+                 ((null s2) s1)
+                 (t  (with-node-bindings (l1 k1 v1 r1 h1) s1
+                       (with-node-bindings (l2 k2 v2 r2 h2) s2
+                         (cond ((>= h1 h2)
+                                (cond ((= h2 1)  (add s1 k2 v2))
+                                      (t  (with-list-bindings (l2 _ r2) (split s2 k1)
+                                            (join (union l1 l2) k1 v1 (union r1 r2))))
+                                      ))
+                               
+                               (t (cond ((= h1 1)  (add s2 k1 v1))
+                                        (t  (with-list-bindings (l1 _ r1) (split s1 v2)
+                                              (join (union l1 l2) k2 v2 (union r1 r2))))
+                                        ))
+                               ))))
+                 )))
+      (um:with s1
+        :nodes (union (tree-nodes s1) (tree-nodes s2)))
+      )))
 
 ;; ------------------------------------------------------------------------
 
-(defmethod intersection (s1 s2)
-  ;; execute with S(Log2(N))
-  (cond ((null s1) (empty))
-        ((null s2) (empty))
-        (t  (with-node-bindings (l1 k1 v1 r1) s1
-              (with-list-bindings (l2 ans r2) (split s2 k1)
-                (let ((new-l (intersection l1 l2))
-                      (new-r (intersection r1 r2)))
-                  (cond (ans  (join new-l k1 v1 new-r))
-                        (t    (concat new-l new-r))
-                        )))))
-        ))
+(defmethod intersection ((s1 tree) (s2 tree))
+  (check-same-type s1 s2)
+  (let ((split-fn (invoked 'split s1)))
+    (labels
+        ((split (s k)
+           (funcall split-fn s k))
+         (intersection (s1 s2)
+           ;; execute with S(Log2(N))
+           (cond ((null s1) (empty))
+                 ((null s2) (empty))
+                 (t  (with-node-bindings (l1 k1 v1 r1) s1
+                       (with-list-bindings (l2 ans r2) (split s2 k1)
+                         (let ((new-l (intersection l1 l2))
+                               (new-r (intersection r1 r2)))
+                           (cond (ans  (join new-l k1 v1 new-r))
+                                 (t    (concat new-l new-r))
+                                 )))))
+                 )))
+      (um:with s1
+        :nodes (intersection (tree-nodes s1) (tree-nodes s2)))
+      )))
 
 ;; ------------------------------------------------------------------------
 
-(defmethod diff (s1 s2)
-  ;; execute with S(Log2(N))
-  (cond ((null s1) s1)
-        ((null s2) s1)
-        (t  (with-node-bindings (l1 k1 v1 r1) s1
-              (with-list-bindings (l2 ans r2) (split s2 k1)
-                (let ((new-l  (diff l1 l2))
-                      (new-r  (diff r1 r2)))
-                  (cond (ans  (concat new-l new-r))
-                        (t    (join new-l k1 v1 new-r))
-                        )))))
-        ))
+(defmethod diff ((s1 tree) (s2 tree))
+  (check-same-type s1 s2)
+  (let ((split-fn  (invoked 'split s1)))
+    (labels
+        ((split (s k)
+           (funcall split-fn s k))
+         (diff (s1 s2)
+           ;; execute with S(Log2(N))
+           (cond ((null s1) s1)
+                 ((null s2) s1)
+                 (t  (with-node-bindings (l1 k1 v1 r1) s1
+                       (with-list-bindings (l2 ans r2) (split s2 k1)
+                         (let ((new-l  (diff l1 l2))
+                               (new-r  (diff r1 r2)))
+                           (cond (ans  (concat new-l new-r))
+                                 (t    (join new-l k1 v1 new-r))
+                                 )))))
+                 )))
+      (um:with s1
+        :nodes (diff (tree-nodes s1) (tree-nodes s2)))
+      )))
 
 ;; ------------------------------------------------------------------------
 
-(defun cons-enum (s e)
-  (if s
-      ;; proceeding down the left side from node s
-      ;; form a telescoped list of node vals and right nodes
-      ;;   -> (v1 r1 (v2 r2 (v3 r3 (... (vtop rtop e))) ...) (why? used internally)
-      ;; where, v1   is the min element of set s,
-      ;;        r1   is the right subnode of the min element node,
-      ;;        v2   is the value from the parent node of the min element node,
-      ;;        r2   is the right subnode of the parent node,
-      ;;        ...
-      ;;        vtop is the value in the top node,
-      ;;        rtop is the right subnode of the top node, and
-      ;;        e    is the starting accumulator list
-      (with-node-bindings (l k _ r) s
-        (cons-enum l (list k r e)))
-    ;; else
-    e))
-    
-(defun compare-enums (e1 e2)
-  (cond ((and (null e1)
-              (null e2))
-         0)
-        ((null e1) -1)
-        ((null e2)  1)
-        (t  (with-list-bindings (k1 r1 t1) e1
-              (declare (list r1 t1))
-              (with-list-bindings (k2 r2 t2) e2
-                (declare (list r2 t2))
-                (let ((c (ord:compare k1 k2)))
-                  (declare (real c))
-                  (cond ((zerop c)  (compare-enums (cons-enum r1 t1)
-                                                   (cons-enum r2 t2)))
-                        (t  c)
-                        )))))
-        ))
+(defmethod compare-trees ((s1 tree) (s2 tree))
+  (assert (eq (tree-type s1)
+              (tree-type s2)))
+  (invoke 'compare s1 (tree-nodes s2)))
 
-(defmethod compare-trees (s1 s2)
-  (compare-enums (cons-enum s1 nil)
-                 (cons-enum s2 nil)))
+(defun make-compare-fn (compare-fn)
+  (labels
+      ((cons-enum (s e)
+         (if s
+             ;; proceeding down the left side from node s
+             ;; form a telescoped list of node vals and right nodes
+             ;;   -> (v1 r1 (v2 r2 (v3 r3 (... (vtop rtop e))) ...) (why? used internally)
+             ;; where, v1   is the min element of set s,
+             ;;        r1   is the right subnode of the min element node,
+             ;;        v2   is the value from the parent node of the min element node,
+             ;;        r2   is the right subnode of the parent node,
+             ;;        ...
+             ;;        vtop is the value in the top node,
+             ;;        rtop is the right subnode of the top node, and
+             ;;        e    is the starting accumulator list
+             (with-node-bindings (l k _ r) s
+               (cons-enum l (list k r e)))
+           ;; else
+           e))
+       (compare-enums (e1 e2)
+         (cond ((and (null e1)
+                     (null e2))
+                0)
+               ((null e1) -1)
+               ((null e2)  1)
+               (t  (with-list-bindings (k1 r1 t1) e1
+                     (declare (list r1 t1))
+                     (with-list-bindings (k2 r2 t2) e2
+                       (declare (list r2 t2))
+                       (let ((c (funcall compare-fn k1 k2)))
+                         (declare (real c))
+                         (cond ((zerop c)  (compare-enums (cons-enum r1 t1)
+                                                          (cons-enum r2 t2)))
+                               (t  c)
+                               )))))
+               ))
+       (compare-trees (s1 s2)
+         ;; execute with S(Log2(N))
+         (compare-enums (cons-enum s1 nil)
+                        (cons-enum s2 nil))))
+    #'compare-trees))
 
-(when (find-class 'node)
-  (defmethod ord:compare ((s1 node) (s2 node))
-    ;; execute with S(Log2(N))
-    (compare-trees s1 s2)))
+(defmethod ord:compare ((s1 tree) (s2 tree))
+  ;; execute with S(Log2(N))
+  (if (eq (tree-type s1)
+          (tree-type s2))
+      (compare-trees s1 s2)
+    -1))
 
 ;; ------------------------------------------------------------------------
 
-(defmethod subset (s1 s2)
-  ;; return true if s1 is subset of s2
-  ;; execute with S(Log2(N))
-  (cond ((null s1)  t)
-        ((null s2)  nil)
-        (t  (with-node-bindings (l1 k1 v1 r1) s1
-              (with-node-bindings (l2 k2 _ r2) s2
-                (let ((c (ord:compare k1 k2)))
-                  (declare (real c))
-                  (cond ((zerop c)
-                         (and (subset l1 l2)
-                              (subset r1 r2)))
+(defmethod subset ((s1 tree) (s2 tree))
+  (assert (eq (tree-type s1)
+              (tree-type s2)))
+  (invoke 'subset s1 (tree-nodes s2)))
+
+(defun make-subset-fn (compare-fn)
+  (labels
+      ((subset (s1 s2)
+         ;; return true if s1 is subset of s2
+         ;; execute with S(Log2(N))
+         (cond ((null s1)  t)
+               ((null s2)  nil)
+               (t  (with-node-bindings (l1 k1 v1 r1) s1
+                     (with-node-bindings (l2 k2 _ r2) s2
+                       (let ((c (funcall compare-fn k1 k2)))
+                         (declare (real c))
+                         (cond ((zerop c)
+                                (and (subset l1 l2)
+                                     (subset r1 r2)))
                         
-                        ((minusp c)
-                         (and (subset (make-instance 'node
-                                                     :l l1  :key k1 :val v1)
-                                      l2)
-                              (subset r1 s2)))
+                               ((minusp c)
+                                (and (subset (%create l1 k1 v1 nil 1)
+                                             l2)
+                                     (subset r1 s2)))
                         
-                        (t (and (subset (make-instance 'node
-                                                       :key k1  :val v1 :r r1)
-                                        r2)
-                                (subset l1 s2)))
-                        )))))
-        ))
+                               (t (and (subset (%create nil k1 v1 r1 1)
+                                               r2)
+                                       (subset l1 s2)))
+                               )))))
+               )))
+    #'subset))
 
 ;; --------------------------------------------------------
 
-(defmethod iter (s fn)
-  ;; perform fn on every set element in pre-order
-  ;; execute with S(Log2(N))
-  ;; speed 1.0
-  ;; no meaningful result returned
-  (and s
-       (with-node-bindings (l k v r) s
-         (iter l fn)
-         (funcall fn k v)
-         (iter r fn))))
+(defmethod iter ((s tree) fn)
+  (labels
+      ((iter (s fn)
+         ;; perform fn on every set element in pre-order
+         ;; execute with S(Log2(N))
+         ;; speed 1.0
+         ;; no meaningful result returned
+         (and s
+              (with-node-bindings (l k v r) s
+                (iter l fn)
+                (funcall fn k v)
+                (iter r fn)))))
+    (iter (tree-nodes s) fn)))
 
-(defmethod fold (s fn accu)
-  ;; accumulate fn applied to every set element in pre-order
-  ;; execute with S(Log2(N))
-  (if s
-      (with-node-bindings (l k v r) s
-        (fold r fn
-              (funcall fn k v (fold l fn accu))))
-    ;; else
-    accu))
+(defmethod fold ((s tree) fn accu)
+  (labels
+      ((fold (s fn accu)
+         ;; accumulate fn applied to every set element in pre-order
+         ;; execute with S(Log2(N))
+         (if s
+             (with-node-bindings (l k v r) s
+               (fold r fn
+                     (funcall fn k v (fold l fn accu))))
+           ;; else
+           accu)))
+    (fold (tree-nodes s) fn accu)))
 
-(defmethod every (s pred)
-  ;; return true if every set element satisfies pred
-  ;; execute with S(Log2(N))
-  (or (null s)
-      (with-node-bindings (l k v r) s
-        (and (funcall pred k v)
-             (every l pred)
-             (every r pred)))
-      ))
+(defmethod every ((s tree) pred)
+  (labels
+      ((every (s pred)
+         ;; return true if every set element satisfies pred
+         ;; execute with S(Log2(N))
+         (or (null s)
+             (with-node-bindings (l k v r) s
+               (and (funcall pred k v)
+                    (every l pred)
+                    (every r pred)))
+             )))
+    (every (tree-nodes s) pred)))
 
 
-(defmethod some (s pred)
-  ;; return true of some element of s satisfies pred
-  ;; Execute with S(Log2(N))
-  (when s
-    (with-node-bindings (l k v r) s
-      (or (funcall pred k v)
-          (some l pred)
-          (some r pred)))
+(defmethod some ((s tree) pred)
+  (labels
+      ((some (s pred)
+         ;; return true of some element of s satisfies pred
+         ;; Execute with S(Log2(N))
+         (when s
+           (with-node-bindings (l k v r) s
+             (or (funcall pred k v)
+                 (some l pred)
+                 (some r pred)))
+           )))
+    (some (tree-nodes s) pred)
     ))
   
-(defmethod filter (s pred)
-  (filter-aux s pred (empty)))
+(defmethod filter ((s tree) pred)
+  (labels
+      ((filter-aux (s pred accu)
+         ;; return subset consisting of element that satisfy pred.
+         ;; Execute with S(Log2(N))
+         (if s
+             (with-node-bindings (l k v r) s
+               (let ((new-accu (filter-aux l pred accu)))
+                 (filter-aux r pred (if (funcall pred k v)
+                                        (add new-accu k v)
+                                      new-accu))))
+           ;; else
+           accu)))
+    (um:with s
+      :nodes (filter-aux (tree-nodes s) pred (empty)))
+    ))
 
-(defun filter-aux (s pred accu)
-  ;; return subset consisting of element that satisfy pred.
-  ;; Execute with S(Log2(N))
-  (if s
-      (with-node-bindings (l k v r) s
-        (let ((new-accu (filter-aux l pred accu)))
-          (filter-aux r pred (if (funcall pred k v)
-                                 (add new-accu k v)
-                               new-accu))))
-    ;; else
-    accu))
+(defmethod partition ((s tree) pred)
+  (labels
+      ((partition-aux (s pred pair)
+         ;; partition set into two subsets (true-element, false-elements)
+         ;; according to pred. Execute with S(Log2(N))
+         (if s
+             (with-node-bindings (l k v r) s
+               (with-list-bindings (tp fp) (partition-aux l pred pair)
+                 (partition-aux r pred (if (funcall pred k v)
+                                           (list (add tp k v) fp)
+                                         (list tp (add fp k v))))
+                 ))
+           ;; else
+           pair)))
+    (with-list-bindings (tp fp)
+        (partition-aux (tree-nodes s) pred (list (empty) (empty)))
+      (list (um:with s
+              :nodes tp)
+            (um:with s
+              :nodes fp))
+      )))
 
-(defun partition-aux (s pred pair)
-  ;; partition set into two subsets (true-element, false-elements)
-  ;; according to pred. Execute with S(Log2(N))
-  (if s
-      (with-node-bindings (l k v r) s
-        (with-list-bindings (tp fp) (partition-aux l pred pair)
-          (partition-aux r pred (if (funcall pred k v)
-                                    (list (add tp k v) fp)
-                                  (list tp (add fp k v))))
-          ))
-    ;; else
-    pair))
+(defmethod cardinal ((s tree))
+  (labels
+      ((cardinal (s)
+         ;; count elements in s (pre-order, FWIW), using S(Log2(N))
+         (if s
+             (with-node-bindings (l _ _ r) s
+               (+ (cardinal l) 1 (cardinal r)))
+           ;; else
+           0)))
+    (cardinal (tree-nodes s))
+    ))
 
-(defmethod partition (s pred)
-  (partition-aux s pred (list (empty) (empty))))
+(defmethod elements ((s tree))
+  (labels
+      ((elements-aux (s accu)
+         ;; list elements of set in pre-order, using S(1)
+         (if s
+             (with-node-bindings (l k v r) s
+               (elements-aux l (acons k v (elements-aux r accu))))
+           ;; else
+           accu)))
+    (elements-aux (tree-nodes s) nil)
+    ))
 
-(defmethod cardinal (s)
-  ;; count elements in s (pre-order, FWIW), using S(Log2(N))
-  (if s
-      (with-node-bindings (l _ _ r) s
-        (+ (cardinal l) 1 (cardinal r)))
-    ;; else
-    0))
+(defmethod choose ((s tree))
+  (min-elt (tree-nodes s)))
 
-(defmethod elements (s)
-  (elements-aux s nil))
+;; --------------------------------------------
+;; Try to do something in Lisp that is akin to ML Functors, i.e., we
+;; want maximal code sharing with comparison customized to the
+;; expected key types.
+;;
+;; Each tree has a pointer to a 'tree-type struct that holds pointers
+;; to the customized functional closures to be used against trees of
+;; its type. The body of the closure code is the same for all tree
+;; types. Only the comparison operation varies.
+;;
+;; E.g., for general purpose keys, we use ORD:COMPARE, and for
+;; RB-HASH-TABLES we use #'- since the keys are all FIXNUMs.
 
-(defun elements-aux (s accu)
-  ;; list elements of set in pre-order, using S(1)
-  (if s
-      (with-node-bindings (l k v r) s
-        (elements-aux l (acons k v (elements-aux r accu))))
-    ;; else
-    accu))
+(defun /eql (a b)
+  (not (eql a b)))
 
+(defvar *tree-types* nil)
+  
+(defun def-tree-type (&key (compare-fn    'ord:compare)
+                           (replace-if-fn '/eql))
+  (or (find-if (lambda (fns)
+                 (flet
+                     ((fn-ptr (x)
+                        (if (symbolp x)
+                            (symbol-function x)
+                          x)))
+                   (and (eq (fn-ptr compare-fn)
+                            (fn-ptr (slot-value fns 'compare-fn)))
+                        (eq (fn-ptr replace-if-fn)
+                            (fn-ptr (slot-value fns 'replace-if-fn)))
+                        )))
+                 *tree-types*)
+      (let ((new-type
+             (make-tree-funcs
+              :compare-fn    compare-fn
+              :replace-if-fn replace-if-fn
+              :add     (make-add-fn     compare-fn replace-if-fn)
+              :split   (make-split-fn   compare-fn)
+              :mem     (make-mem-fn     compare-fn)
+              :remove  (make-remove-fn  compare-fn)
+              :compare (make-compare-fn compare-fn)
+              :subset  (make-subset-fn  compare-fn)
+              )))
+        (push new-type *tree-types*)
+        new-type)))
 
-(defmethod choose (s)
-  (min-elt s))
+(defvar +default-tree-type+ (def-tree-type))
+
+(defun make-tree (&optional (type +default-tree-type+))
+  (%make-tree type))
 
 ;; -------------------------------------------------------------
 
@@ -711,11 +889,11 @@ THE SOFTWARE.
   (defmethod key-fn (item)
     item)
   
-  (defmethod view-set (s &key (key #'key-fn) (layout :left-right) &allow-other-keys)
+  (defmethod view-set ((s tree) &key (key #'key-fn) (layout :left-right) &allow-other-keys)
     (capi:contain
      (make-instance 'capi:graph-pane
                     :layout-function   layout
-                    :roots             (list s)
+                    :roots             (list (tree-nodes s))
                     :children-function #'(lambda (node)
                                            (set-children node layout))
                     :print-function    #'(lambda (node)
@@ -727,9 +905,9 @@ THE SOFTWARE.
 
 #|
 ;; examine effects of constructing a tree in pure ascending or descending order
-(inspect (let ((xt (sets:empty))) (dotimes (ix 100) (setf xt (sets:add xt ix))) xt))
-(view-set (let ((xt (sets:empty))) (dotimes (ix 10) (setf xt (sets:add xt ix))) xt))
-(view-set (let ((xt (sets:empty))) (dotimes (ix 10) (setf xt (sets:add xt (- 99 ix) ))) xt))
+(inspect (let ((xt (make-tree)))  (dotimes (ix 100) (setf xt (sets:add xt ix))) xt))
+(view-set (let ((xt (make-tree))) (dotimes (ix 10) (setf xt (sets:add xt ix))) xt))
+(view-set (let ((xt (make-tree))) (dotimes (ix 10) (setf xt (sets:add xt (- 99 ix) ))) xt))
 |#
 ;; -------------------------------------------------------------
 #|
@@ -741,7 +919,7 @@ THE SOFTWARE.
     arr))
 
 (defun tst ()
-  (let ((x (empty)))
+  (let ((x (make-tree)))
     (dotimes (ix (length *tst-coll*))
       (addf x (aref *tst-coll* ix)))
     (cardinal x)))

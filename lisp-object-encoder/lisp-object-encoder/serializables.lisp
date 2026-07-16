@@ -220,18 +220,45 @@ Answer:
 
 ;; --------------------------------------------
 ;; RB-Trees
+;;
+;; NOTE: Generating the serializers for maps:empty and sets:node by
+;; way of macrology, is done this way because LW keeps warning about
+;; non-existent types even when the direct compilation is bypassed
+;; using the UNLESS guards.
 
-(defmethod make-serializable ((obj maps:empty))
-  :RB-EMPTY)
+(defmacro gen-ser-empty-map ()
+  (unless (null (maps:empty))
+    `(defmethod make-serializable ((obj maps:empty))
+       :RB-EMPTY)))
 
-(defmethod make-serializable ((obj sets:node))
-  (let ((elts  (sets:elements obj)))
-    (if (every #'maps:map-cell-p elts)
-        (let ((keys (mapcar #'maps:map-cell-key elts))
-              (vals (mapcar #'maps:map-cell-val elts)))
-          (values :RB-MAP
-                  (list keys vals)))
-      (values :RB-SET elts))
+(gen-ser-empty-map)
+
+(defmethod make-serializable ((obj sets:tree))
+  (let* ((elts  (sets:elements obj))
+         (keys  (mapcar #'car elts))
+         (vals  (mapcar #'cdr elts))
+         (compare-fn    (sets::invoked 'sets::compare-fn    obj))
+         (replace-if-fn (sets::invoked 'sets::replace-if-fn obj)))
+    (if (every #'null vals)
+        (values :rb-set
+                (list compare-fn keys))
+      ;; else
+      (values :RB-MAP
+              (list compare-fn
+                    replace-if-fn
+                    keys vals)))
+    ))
+
+(defmethod make-serializable ((obj rbht:hash-table))
+  (let ((keys  nil)
+        (vals  nil))
+    (rbht:maphash (lambda (k v)
+                    (push k keys)
+                    (push v vals))
+                  obj)
+    (values :RB-HTBL
+            (list (rbht:hash-table-test obj)
+                  keys vals))
     ))
 
 (defmethod deserialize-type ((type (eql :RB-EMPTY)) data)
@@ -239,18 +266,32 @@ Answer:
   (maps:empty))
 
 (defmethod deserialize-type ((type (eql :RB-SET)) data)
-  (let ((tree (sets:empty)))
-    (dolist (item data)
+  (destructuring-bind (compare-fn keys) data
+    (let* ((tree-type (sets:def-tree-type :compare-fn compare-fn))
+           (tree (sets:make-tree tree-type)))
+    (dolist (item keys)
       (sets:addf tree item))
-    tree))
+    tree)))
 
 (defmethod deserialize-type ((type (eql :RB-MAP)) data)
-  (destructuring-bind (keys vals) data
-    (let ((tree (maps:empty)))
+  (destructuring-bind (compare-fn replace-if-fn keys vals) data
+    (let* ((type (maps:def-tree-type :compare-fn compare-fn :replace-if-fn replace-if-fn))
+           (tree (maps:make-tree type)))
       (map nil (lambda (k v)
                  (maps:addf tree k v))
            keys vals)
       tree)))
+
+(defmethod deserialize-type ((type (eql :RB-HTBL)) data)
+  (destructuring-bind (test keys vals) data
+    (let ((tbl (rbht:make-hash-table
+                :test test)))
+      (loop for key in keys
+            for val in vals
+            do
+              (rbht:addf tbl key val))
+      tbl)))
+                  
 
 (defmethod make-serializable ((obj sets:UE))
   (values :UE-SETS (sets:UD obj)))
