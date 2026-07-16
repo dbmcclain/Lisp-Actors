@@ -277,9 +277,8 @@ THE SOFTWARE.
                (no)))
           
             (t
-             (let* ((node (sets:max-elt tree))
-                    (prio (maps:map-cell-key node))
-                    (fq   (maps:map-cell-val node)))
+             (multiple-value-bind (prio fq)
+                 (sets:max-elt tree)
                (yes prio fq)))
             ))))
 
@@ -296,8 +295,9 @@ THE SOFTWARE.
                (no)))
           
             (t
-             (let* ((node (sets:max-elt tree))
-                    (fq   (maps:map-cell-val node)))
+             (multiple-value-bind (prio fq)
+                 (sets:max-elt tree)
+               (declare (ignore prio))
                (peekq fq)))
             ))))
 
@@ -325,7 +325,7 @@ THE SOFTWARE.
 
 (defun make-priq ()
   (%make-priq
-   :val (maps:empty)))
+   :val (maps:make-tree)))
 
 (defmethod addq ((q priq) item &key (prio 0))
   (um:rmw (ref:ref-val q) (lambda (tree)
@@ -371,10 +371,9 @@ THE SOFTWARE.
                              (yes prio fq)
                            (no)))
                         
-                        (t 
-                         (let* ((node (sets:max-elt tree))
-                                (prio (maps:map-cell-key node))
-                                (fq   (maps:map-cell-val node)))
+                        (t
+                         (multiple-value-bind (prio fq)
+                             (sets:max-elt tree)
                            (yes prio fq)))
                         )) ))
     (declare (ignore _))
