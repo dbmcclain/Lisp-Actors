@@ -225,6 +225,7 @@ THE SOFTWARE.
    #:hash-table-test
    #:gethash
    #:remhash
+   #:clrhash
    #:maphash
    #:add
    #:addf

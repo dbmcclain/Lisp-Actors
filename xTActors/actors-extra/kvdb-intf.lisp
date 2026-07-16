@@ -89,7 +89,8 @@
 
 #+:KVDB-USE-PFHT
 (defun db-new ()
-  (pfht:make-hash-table))
+  (pfht:make-hash-table
+   :test 'equal))
 
 ;; -------------------
 ;; One version for us...

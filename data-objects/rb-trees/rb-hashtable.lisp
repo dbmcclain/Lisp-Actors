@@ -111,6 +111,10 @@
 (defun remhash (key tbl)
   (trim tbl key))
 
+(defun clrhash (tbl)
+  (um:with tbl
+    :tree (maps:empty)))
+
 (defun maphash (fn tbl)
   (with-slots (tree) tbl
     (maps:iter tree (lambda (_ v)
