@@ -237,8 +237,9 @@ Answer:
   (let* ((elts  (sets:elements obj))
          (keys  (mapcar #'car elts))
          (vals  (mapcar #'cdr elts))
-         (compare-fn    (sets::invoked 'sets::compare-fn    obj))
-         (replace-if-fn (sets::invoked 'sets::replace-if-fn obj)))
+         (type  (funcall obj :type))
+         (compare-fn    (sets:tree-type-compare-fn   type))
+         (replace-if-fn (sets:tree-type-replace-p-fn type)))
     (if (every #'null vals)
         (values :rb-set
                 (list compare-fn keys))
@@ -267,16 +268,16 @@ Answer:
 
 (defmethod deserialize-type ((type (eql :RB-SET)) data)
   (destructuring-bind (compare-fn keys) data
-    (let* ((tree-type (sets:def-tree-type :compare-fn compare-fn))
-           (tree (sets:make-tree tree-type)))
+    (let* ((tree-type (sets:define-tree-type :compare-fn compare-fn))
+           (tree (sets:make-tree :tree-type tree-type)))
     (dolist (item keys)
       (sets:addf tree item))
     tree)))
 
 (defmethod deserialize-type ((type (eql :RB-MAP)) data)
   (destructuring-bind (compare-fn replace-if-fn keys vals) data
-    (let* ((type (maps:def-tree-type :compare-fn compare-fn :replace-if-fn replace-if-fn))
-           (tree (maps:make-tree type)))
+    (let* ((type (maps:define-tree-type :compare-fn compare-fn :replace-p-fn replace-if-fn))
+           (tree (maps:make-tree :tree-type type)))
       (map nil (lambda (k v)
                  (maps:addf tree k v))
            keys vals)
