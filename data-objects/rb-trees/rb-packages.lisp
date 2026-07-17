@@ -82,9 +82,11 @@ THE SOFTWARE.
    #:copy-as-unshared
    #:tree
    #:tree-type
+   #:tree-type-compare-fn
+   #:tree-type-replace-p-fn
    #:tree-nodes
    #:make-tree
-   #:def-tree-type
+   #:define-tree-type
    #:empty
    #:node
    #:node-p
@@ -141,9 +143,11 @@ THE SOFTWARE.
    #:/eql
    #:tree
    #:tree-type
+   #:tree-type-compare-fn
+   #:tree-type-replace-p-fn
    #:tree-nodes
    #:make-tree
-   #:def-tree-type
+   #:define-tree-type
    #:empty
    #:copy
    #:copy-as-shared
@@ -175,9 +179,11 @@ THE SOFTWARE.
    #:/eql
    #:tree
    #:tree-type
+   #:tree-type-compare-fn
+   #:tree-type-replace-p-fn
    #:tree-nodes
    #:make-tree
-   #:def-tree-type
+   #:define-tree-type
    #:make-shared-map
    #:make-unshared-map
    #:copy

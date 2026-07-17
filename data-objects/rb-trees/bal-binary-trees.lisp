@@ -170,9 +170,8 @@ THE SOFTWARE.
 ;; --------------------------------------------
 
 (defmethod add (tree key &optional val)
-  (um:with tree
-    :nodes (invoke 'add tree key val)
-    ))
+  (funcall tree :clone-with
+           (funcall tree :add key val)))
 
 (defun make-add-fn (compare-fn replace-fn)
   (labels
@@ -305,8 +304,7 @@ THE SOFTWARE.
       (remove-min-elt (tree-nodes tree))
     (values mink
             minv
-            (um:with tree
-              :nodes new-nodes))
+            (funcall tree :clone-with new-nodes))
     ))
 
 ;; concat - merge two trees l and r into one.
@@ -354,8 +352,7 @@ THE SOFTWARE.
                  (if acc
                      (with-node-bindings (l k v) (car acc)
                        (go-rebuild maxk maxv (bal l k v nodes) (cdr acc)))
-                   (values maxk maxv (um:with tree
-                                       :nodes nodes))))
+                   (values maxk maxv (funcall tree :clone-with nodes) )))
                )))
          )))
 
@@ -392,12 +389,10 @@ THE SOFTWARE.
 
 (defmethod split ((tree tree) key)
   (with-list-bindings (l present r)
-      (invoke 'split tree key)
-    (list (um:with tree
-            :nodes l)
+      (funcall tree :split key)
+    (list (funcall tree :clone-with l)
           present
-          (um:with tree
-            :nodes r))
+          (funcall tree :clone-with r))
     ))
 
 (defun make-split-fn (compare-fn)
@@ -425,7 +420,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod mem ((tree tree) key)
-  (invoke 'mem tree key))
+  (funcall tree :mem key))
 
 (defun make-mem-fn (compare-fn)
   (labels
@@ -444,8 +439,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod remove (tree key)
-  (um:with tree
-    :nodes (invoke 'remove tree key)))
+  (funcall tree :clone-with (funcall tree :remove key)))
 
 (defun make-remove-fn (compare-fn)
   (labels
@@ -482,7 +476,7 @@ THE SOFTWARE.
 
 (defmethod union ((s1 tree) (s2 tree))
   (check-same-type s1 s2)
-  (let ((split-fn  (invoked 'split s1)))
+  (let ((split-fn  (funcall s1 :split-fn)))
     (labels
         ((split (s k)
            (funcall split-fn s k))
@@ -504,15 +498,14 @@ THE SOFTWARE.
                                         ))
                                ))))
                  )))
-      (um:with s1
-        :nodes (union (tree-nodes s1) (tree-nodes s2)))
+      (funcall s1 :clone-with (union (tree-nodes s1) (tree-nodes s2)))
       )))
 
 ;; ------------------------------------------------------------------------
 
 (defmethod intersection ((s1 tree) (s2 tree))
   (check-same-type s1 s2)
-  (let ((split-fn (invoked 'split s1)))
+  (let ((split-fn (funcall s1 :split-fn)))
     (labels
         ((split (s k)
            (funcall split-fn s k))
@@ -528,15 +521,14 @@ THE SOFTWARE.
                                  (t    (concat new-l new-r))
                                  )))))
                  )))
-      (um:with s1
-        :nodes (intersection (tree-nodes s1) (tree-nodes s2)))
+      (funcall s1 :clone-with (intersection (tree-nodes s1) (tree-nodes s2)))
       )))
 
 ;; ------------------------------------------------------------------------
 
 (defmethod diff ((s1 tree) (s2 tree))
   (check-same-type s1 s2)
-  (let ((split-fn  (invoked 'split s1)))
+  (let ((split-fn  (funcall s1 :split-fn)))
     (labels
         ((split (s k)
            (funcall split-fn s k))
@@ -552,15 +544,14 @@ THE SOFTWARE.
                                  (t    (join new-l k1 v1 new-r))
                                  )))))
                  )))
-      (um:with s1
-        :nodes (diff (tree-nodes s1) (tree-nodes s2)))
+      (funcall s1 :clone-with (diff (tree-nodes s1) (tree-nodes s2)))
       )))
 
 ;; ------------------------------------------------------------------------
 
 (defmethod compare-trees ((s1 tree) (s2 tree))
   (check-same-type s1 s2)
-  (invoke 'compare s1 (tree-nodes s2)))
+  (funcall s1 :compare s2))
 
 (defun make-compare-fn (compare-fn)
   (labels
@@ -615,7 +606,7 @@ THE SOFTWARE.
 
 (defmethod subset ((s1 tree) (s2 tree))
   (check-same-type s1 s2)
-  (invoke 'subset s1 (tree-nodes s2)))
+  (funcall s1 :subset s2))
 
 (defun make-subset-fn (compare-fn)
   (labels
@@ -714,8 +705,7 @@ THE SOFTWARE.
                                       new-accu))))
            ;; else
            accu)))
-    (um:with s
-      :nodes (filter-aux (tree-nodes s) pred (empty)))
+    (funcall s :clone-with (filter-aux (tree-nodes s) pred (empty)))
     ))
 
 (defmethod partition ((s tree) pred)
@@ -734,10 +724,8 @@ THE SOFTWARE.
            pair)))
     (with-list-bindings (tp fp)
         (partition-aux (tree-nodes s) pred (list (empty) (empty)))
-      (list (um:with s
-              :nodes tp)
-            (um:with s
-              :nodes fp))
+      (list (funcall s :clone-with tp)
+            (funcall s :clone-with fp))
       )))
 
 (defmethod cardinal ((s tree))
@@ -768,56 +756,6 @@ THE SOFTWARE.
   (min-elt s))
 
 ;; --------------------------------------------
-;; Try to do something in Lisp that is akin to ML Functors, i.e., we
-;; want maximal code sharing with comparison customized to the
-;; expected key types.
-;;
-;; Each tree has a pointer to a 'tree-type struct that holds pointers
-;; to the customized functional closures to be used against trees of
-;; its type. The body of the closure code is the same for all tree
-;; types. Only the comparison operation varies.
-;;
-;; E.g., for general purpose keys, we use ORD:COMPARE, and for
-;; RB-HASH-TABLES we use #'- since the keys are all FIXNUMs.
-
-(defun /eql (a b)
-  (not (eql a b)))
-
-(defvar *tree-types* nil)
-  
-(defun def-tree-type (&key (compare-fn    'ord:compare)
-                           (replace-if-fn '/eql))
-  (or (find-if (lambda (fns)
-                 (flet
-                     ((fn-ptr (x)
-                        (if (symbolp x)
-                            (symbol-function x)
-                          x)))
-                   (and (eq (fn-ptr compare-fn)
-                            (fn-ptr (slot-value fns 'compare-fn)))
-                        (eq (fn-ptr replace-if-fn)
-                            (fn-ptr (slot-value fns 'replace-if-fn)))
-                        )))
-                 *tree-types*)
-      (let ((new-type
-             (make-tree-funcs
-              :compare-fn    compare-fn
-              :replace-if-fn replace-if-fn
-              :add     (make-add-fn     compare-fn replace-if-fn)
-              :split   (make-split-fn   compare-fn)
-              :mem     (make-mem-fn     compare-fn)
-              :remove  (make-remove-fn  compare-fn)
-              :compare (make-compare-fn compare-fn)
-              :subset  (make-subset-fn  compare-fn)
-              )))
-        (push new-type *tree-types*)
-        new-type)))
-
-(defvar +default-tree-type+ (def-tree-type))
-
-(defun make-tree (&optional (type +default-tree-type+))
-  (%make-tree type))
-
 ;; -------------------------------------------------------------
 
 #|

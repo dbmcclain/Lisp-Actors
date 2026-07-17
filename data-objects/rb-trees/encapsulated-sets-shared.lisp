@@ -6,8 +6,8 @@
 
 (um:make-encapsulated-type SE SE? SD)
 
-(defun make-shared-set (&optional (type +default-tree-type+))
-  (SE (make-tree type)))
+(defun make-shared-set (&key (tree-type +default-tree-type+))
+  (SE (make-tree :tree-type tree-type)))
 
 (defun rd-set (set)
   (um:rd (SD set)))

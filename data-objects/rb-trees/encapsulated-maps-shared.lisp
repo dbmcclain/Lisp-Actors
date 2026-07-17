@@ -6,8 +6,8 @@
 
 (um:make-encapsulated-type SE SE? SD)
 
-(defun make-shared-map (&optional (type sets::+default-tree-type+))
-  (SE (make-tree type)))
+(defun make-shared-map (&key (tree-type sets::+default-tree-type+))
+  (SE (make-tree :tree-type tree-type)))
 
 (defun rd-map (map)
   (um:rd (SD map)))

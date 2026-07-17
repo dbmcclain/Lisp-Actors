@@ -6,8 +6,8 @@
 
 (um:make-encapsulated-type UE UE? UD)
 
-(defun make-unshared-set (&optional (type +default-tree-type+))
-  (UE (make-tree type)))
+(defun make-unshared-set (&key (tree-type +default-tree-type+))
+  (UE (make-tree :tree-type tree-type)))
 
 (defmethod copy ((set UE))
   (UE (UD set)))

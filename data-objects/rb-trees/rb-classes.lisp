@@ -22,27 +22,18 @@
 ;; Type Tree = Empty | Node(l:Tree,k:T,v:T,r:Tree,h:Fixnum)
 ;; --------------------------------------------
 
-(defstruct tree-funcs
-  (compare-fn    nil :read-only t)
-  (replace-if-fn nil :read-only t)
-  (add           nil :read-only t)
-  (split         nil :read-only t)
-  (mem           nil :read-only t)
-  (remove        nil :read-only t)
-  (compare       nil :read-only t)
-  (subset        nil :read-only t))
+(defclass tree ()
+  ()
+  (:metaclass
+   #+:LISPWORKS clos:funcallable-standard-class
+   #+:SBCL      sb-mop:funcallable-standard-class))
 
-(defstruct (tree
-            (:constructor %make-tree (type)))
-  (type  nil :read-only t)
-  (nodes nil :read-only t))
+(defun tree-nodes (tree)
+  (funcall tree :nodes))
 
-(defun invoked (fn-name tree)
-  (slot-value (tree-type tree) fn-name))
+(defun tree-type (tree)
+  (funcall tree :type))
 
-(defun invoke (fn-name tree &rest args)
-  (apply (invoked fn-name tree) (tree-nodes tree) args))
-  
 (defstruct (node (:constructor singleton-node (k &optional v))
                  (:constructor %create (l k v r h)))
   (l nil :read-only t)

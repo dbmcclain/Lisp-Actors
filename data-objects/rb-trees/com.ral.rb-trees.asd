@@ -32,6 +32,7 @@ THE SOFTWARE.
                 (:file "ord")
                 (:file "rb-classes")
                 (:file "bal-binary-trees")
+                (:file "rb-tree-types")
                 (:file "encapsulated-sets-unshared")
                 (:file "encapsulated-sets-shared")
                 (:file "bal-binary-tree-maps")
