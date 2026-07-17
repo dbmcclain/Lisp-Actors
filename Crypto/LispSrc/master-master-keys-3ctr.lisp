@@ -900,7 +900,7 @@ u+rbrf232tGbo/iHscKGpab3/Yncu83EgPUO"))
 
 (defun encrypt-share (share key)
   (let* ((key (encode-object-to-base64 key))
-         (enc (loenc:encode share)))
+         (enc (ser:encode share)))
     (encode-bytes-to-base64
      (3ctr-hmac-encrypt-sequence enc key))))
 
@@ -917,7 +917,7 @@ u+rbrf232tGbo/iHscKGpab3/Yncu83EgPUO"))
          (unl    (make-crypto-share
                   :x x0
                   :y y0))
-         (enc    (loenc:encode unl))
+         (enc    (ser:encode unl))
          (crypt  (3ctr-hmac-encrypt-sequence enc (encode-b64 yk))))
     (encode-b64
      (list

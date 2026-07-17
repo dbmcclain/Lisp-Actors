@@ -226,13 +226,6 @@ Answer:
 ;; non-existent types even when the direct compilation is bypassed
 ;; using the UNLESS guards.
 
-(defmacro gen-ser-empty-map ()
-  (unless (null (maps:empty))
-    `(defmethod make-serializable ((obj maps:empty))
-       :RB-EMPTY)))
-
-(gen-ser-empty-map)
-
 (defmethod make-serializable ((obj sets:tree))
   (let* ((elts  (sets:elements obj))
          (keys  (mapcar #'car elts))
@@ -261,10 +254,6 @@ Answer:
             (list (rbht:hash-table-test obj)
                   keys vals))
     ))
-
-(defmethod deserialize-type ((type (eql :RB-EMPTY)) data)
-  (declare (ignore data))
-  (maps:empty))
 
 (defmethod deserialize-type ((type (eql :RB-SET)) data)
   (destructuring-bind (compare-fn keys) data

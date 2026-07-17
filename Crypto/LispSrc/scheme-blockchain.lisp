@@ -181,7 +181,7 @@ THE SOFTWARE.
   data hash previous-hash)
 
 (defun to-byte-array (x)
-  (loenc:encode x)
+  (ser:encode x)
   #|
   (let ((retval (make-array 0 :adjustable t 
                             :fill-pointer t 

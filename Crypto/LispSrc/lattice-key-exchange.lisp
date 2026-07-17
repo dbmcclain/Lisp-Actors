@@ -127,7 +127,7 @@
    0 16))
 
 (defun make-aes-packet (key &rest data)
-  (let* ((vdata  (loenc:encode (loenc:unshared-list data)
+  (let* ((vdata  (ser:encode (loenc:unshared-list data)
                                :max-portability t))
          (iv     (make-iv key))
          (cdata  (aes-enc/dec key iv vdata))
@@ -142,11 +142,11 @@
           (let ((chkx (make-auth-chk key iv cdata)))
             (when (equalp chkx chk) ;; just drop on the floor if not valid
               (let ((vdata  (aes-enc/dec key iv cdata)))
-                (loenc:decode vdata)))
+                (ser:decode vdata)))
             ))
      (t ;; an unauthenticated packet used for initial handshake dance
         (let ((vdata  (aes-enc/dec key iv cdata)))
-          (loenc:decode vdata)))
+          (ser:decode vdata)))
      )))
 
 #|
@@ -263,7 +263,7 @@
                      :direction :output
                      :if-does-not-exist :create
                      :if-exists         :supersede)
-    (loenc:serialize (list sys pkey) f)))
+    (ser:serialize (list sys pkey) f)))
 
 ;; ---------------------------------------------------------------------
 ;; To be used on foreign nodes...
@@ -272,7 +272,7 @@
                    :element-type '(unsigned-byte 8)
                    :direction :input)
   (destructuring-bind (sys pkey)
-      (loenc:deserialize f)
+      (ser:deserialize f)
     (send kvdb:kvdb sink :add :flat-system sys)
     (send kvdb:kvdb sink :add "{B2DA77DC-B596-11EE-8E31-CB2DA3737401}" pkey)))
 

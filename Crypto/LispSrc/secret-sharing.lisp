@@ -806,13 +806,13 @@ irKLmPOt7oDA3arCiO2yhsmGj+Hf6uyhxo+Q1OfG7ImK94WBsKby8JTCnOqjvenXlsP0vKXo//+b
                    (format-share share)))))
 
 (defun encode-share (share)
-  (encode-bytes-to-base64 (loenc:encode share)))
+  (encode-bytes-to-base64 (ser:encode share)))
 
 (defun encode-shares (shares)
   (mapcar #'encode-share shares))
 
 (defun decode-share (share64)
-  (loenc:decode (decode-bytes-from-base64 share64)))
+  (ser:decode (decode-bytes-from-base64 share64)))
 
 (defun decode-shares (shares64)
   (mapcar #'decode-share shares64))

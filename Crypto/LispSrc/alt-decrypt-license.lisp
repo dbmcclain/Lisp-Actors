@@ -49,7 +49,7 @@ THE SOFTWARE.
              (end   (search snip buf
                             :test #'char-equal
                             :from-end t)))
-        (loenc:decode
+        (ser:decode
          (3ctr-hmac-decrypt-sequence
           (decode-bytes-from-base64 (subseq buf (+ start (length snip)) end))
           key))
@@ -129,7 +129,7 @@ THE SOFTWARE.
                        :if-exists :supersede
                        :if-does-not-exist :create)
       (write-sequence (encode-bytes-to-base64
-                       (loenc:encode unlock-share))
+                       (ser:encode unlock-share))
                       f)) ))
 
 ;; ------------------------------------------------------------------

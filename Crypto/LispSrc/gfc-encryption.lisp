@@ -444,7 +444,7 @@ THE SOFTWARE.
 (let* ((key    (kdf 256 "Howdy!"))
        (cipher (make-ecb-cipher :aesx key))
        (buf    (make-array 16 :element-type '(unsigned-byte 8) :initial-element 0))
-       ;; (loenc:encode #(0 0 0 0 0 0 0 0 0 0) :align 16)
+       ;; (ser:encode #(0 0 0 0 0 0 0 0 0 0) :align 16)
        (orig   (copy-seq buf)))
   (safe-encrypt-in-place cipher buf)
   (hex (list orig buf)))

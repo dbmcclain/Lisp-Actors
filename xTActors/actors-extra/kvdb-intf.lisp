@@ -85,7 +85,7 @@
 
 #+:KVDB-USE-MAPS
 (defun db-new ()
-  (maps:empty))
+  (maps:make-tree))
 
 #+:KVDB-USE-PFHT
 (defun db-new ()

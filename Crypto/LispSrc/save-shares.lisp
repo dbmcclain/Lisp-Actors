@@ -64,7 +64,7 @@ THE SOFTWARE.
   (let* ((from (+ (length *snippy-start*) (search *snippy-start* shares-enc)))
          (to   (search *snippy-stop* shares-enc :start2 from)))
     (destructuring-bind (pt-clas pt-vTun pt-vDBM)
-        (loenc:decode
+        (ser:decode
          (decode-bytes-from-base64
           (subseq shares-enc from to)))
       (save-user-share-file *clas-user-share-file*    pt-clas)

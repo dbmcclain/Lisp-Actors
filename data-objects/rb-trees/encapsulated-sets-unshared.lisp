@@ -6,8 +6,13 @@
 
 (um:make-encapsulated-type UE UE? UD)
 
-(defun make-unshared-set (&key (tree-type +default-tree-type+))
-  (UE (make-tree :tree-type tree-type)))
+(defun make-unshared-set (&rest args
+                                &key
+                                tree-type
+                                compare-fn
+                                replace-p-fn)
+  (declare (ignore tree-type compare-fn replace-p-fn))
+  (UE (apply #'make-tree args)))
 
 (defmethod copy ((set UE))
   (UE (UD set)))
@@ -85,7 +90,6 @@
   (apply #'view-set (UD set) args))
 
 (defmethod erase ((set UE))
-  (setf (UD set) (um:with (UD set)
-                   :nodes (empty))))
+  (setf (UD set) (funcall (UD set) :clone-with (empty))))
 
 

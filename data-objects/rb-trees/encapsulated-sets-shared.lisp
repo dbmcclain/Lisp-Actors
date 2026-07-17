@@ -6,8 +6,13 @@
 
 (um:make-encapsulated-type SE SE? SD)
 
-(defun make-shared-set (&key (tree-type +default-tree-type+))
-  (SE (make-tree :tree-type tree-type)))
+(defun make-shared-set (&rest args
+                              &key
+                              tree-type
+                              compare-fn
+                              replace-p-fn)
+  (declare (ignore tree-type compare-fn replace-p-fn))
+  (SE (apply #'make-tree args)))
 
 (defun rd-set (set)
   (um:rd (SD set)))
@@ -128,8 +133,8 @@
 
 (defmethod erase ((set SE))
   (rmw-set (s set)
-    (um:with s
-      :nodes (empty))))
+    (funcall s :clone-with (empty))
+    ))
 
 ;; ------------------------------------------
 ;; Encapsulation coercion

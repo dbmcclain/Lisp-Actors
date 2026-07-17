@@ -597,7 +597,7 @@ export zle_bracketed_paste=( )
   (ub-catl-vecs vecs))
 
 (defun aont-encode (obj)
-  (let* ((bytes  (loenc:encode obj))
+  (let* ((bytes  (ser:encode obj))
          (nel    (length bytes))
          keypos
          (key    (make-random-v 16))
@@ -687,7 +687,7 @@ export zle_bracketed_paste=( )
       (unless (equalp canary *canary*)
         (error "Can't decode"))
       (ironclad:decrypt-in-place cipher bytes :start 32 :end keypos)
-      (loenc:decode bytes :start 32))
+      (ser:decode bytes :start 32))
     ))
 
 (defun aont-rs-decode (vecs)

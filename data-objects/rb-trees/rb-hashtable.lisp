@@ -121,7 +121,7 @@
 
 (defun clrhash (tbl)
   (um:with tbl
-    :tree (maps:empty)))
+    :tree (maps:make-tree)))
 
 (defun maphash (fn tbl)
   (with-slots (tree) tbl

@@ -222,7 +222,7 @@
  |#
 
 (defun elligator-ed-dsa (msg k-priv)
-  (let ((msg-enc (lev (loenc:encode msg)))
+  (let ((msg-enc (lev (ser:encode msg)))
         (tau-pub (elli2-encode (ed-nth-pt k-priv))))
     (unless tau-pub
       (error "Not an Elligator key"))
@@ -255,7 +255,7 @@
                       (hash/512
                        (levn tau-r   nbytes)
                        (levn tau-pub nbytes)
-                       (lev (loenc:encode msg))))
+                       (lev (ser:encode msg))))
                      )))))
 
 ;; ------------------------------------------------------------

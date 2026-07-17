@@ -311,7 +311,7 @@
 
 (defun lat-enc (pkey &rest objs)
   ;; general object encryption
-  (lat-encode pkey (loenc:encode (coerce objs 'vector))))
+  (lat-encode pkey (ser:encode (coerce objs 'vector))))
 
 ;; ---------------------------------------------------------------
 ;; LWE Lattice Decoding
@@ -381,7 +381,7 @@
 
 (defun lat-dec (skey cs)
   ;; general object decryption
-  (values-list (coerce (loenc:decode (lat-decode skey cs)) 'list)))
+  (values-list (coerce (ser:decode (lat-decode skey cs)) 'list)))
 
 ;; -------------------------------------------------
 
@@ -407,7 +407,7 @@
 
 (let* ((v (vec (hash/256 :hello 'there pi 15)))
        (e (lat-encode *tst-pkey* v))
-       (enc (loenc:encode (coerce e 'vector))))
+       (enc (ser:encode (coerce e 'vector))))
   (length enc))
   
 (defun chk-timing (&optional (ntimes 1000))

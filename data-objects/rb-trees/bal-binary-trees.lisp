@@ -377,7 +377,7 @@ THE SOFTWARE.
 (inspect (split *s* 32))
 (inspect (remove *s* 32))
 
-(view-set (let ((xt (sets:empty))) (dotimes (ix 10) (setf xt (sets:add xt ix))) xt))
+(view-set (let ((xt (make-tree))) (dotimes (ix 10) (sets:addf xt ix)) xt))
 |#
 ;; ------------------------------------------------------------------------
 ;; split - (split s x) returns a triple of (values l present r)

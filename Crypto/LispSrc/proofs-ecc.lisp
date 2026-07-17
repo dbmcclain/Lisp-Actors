@@ -494,7 +494,7 @@ there are no concerns about x being in small range."
 #|
 (defun tst (av bv)
   (let* ((proof (dotprod-proof av bv))
-         (enc   (loenc:encode proof)))
+         (enc   (ser:encode proof)))
     (inspect proof)
     (assert (validate-dotprod-proof proof))
     (format t "~%Validation Okay")

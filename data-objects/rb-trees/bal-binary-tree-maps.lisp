@@ -55,8 +55,7 @@ THE SOFTWARE.
 
 (defmethod mapi ((map tree) f)
   ;; eval with S(Log2(N))
-  (let ((new-map (um:with map
-                   :nodes (empty))))
+  (let ((new-map (funcall map :clone-with (empty))))
     (sets:iter map
                #'(lambda (key val)
                    (addf new-map key (funcall f key val))))

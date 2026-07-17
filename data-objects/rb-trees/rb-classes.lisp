@@ -34,7 +34,8 @@
 (defun tree-type (tree)
   (funcall tree :type))
 
-(defstruct (node (:constructor singleton-node (k &optional v))
+(defstruct (node (:type vector)
+                 (:constructor singleton-node (k &optional v))
                  (:constructor %create (l k v r h)))
   (l nil :read-only t)
   (k nil :read-only t)
@@ -42,12 +43,16 @@
   (r nil :read-only t)
   (h 1   :read-only t))
 
+(defun node-p (x)
+  (and (vectorp x)
+       (= 5 (length x))))
+
 (defgeneric height (tree)
   (:method ((tree tree))
    (height (tree-nodes tree)))
   (:method ((x null))
    0)
-  (:method ((x node))
+  (:method ((x vector))
    (node-h x)))
 
 (defgeneric is-empty (tree)
@@ -55,5 +60,5 @@
    (is-empty (tree-nodes tree)))
   (:method ((tree null))
    t)
-  (:method ((tree node))
+  (:method ((tree vector))
    nil))

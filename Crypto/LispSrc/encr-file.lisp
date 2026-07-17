@@ -37,7 +37,7 @@
                                         :operation :open)))
     (when in-fname
       (um:remember-filename :encryption-in in-fname)
-      (let* ((v         (loenc:encode (vector in-fname
+      (let* ((v         (ser:encode (vector in-fname
                                               (hcl:file-binary-bytes in-fname))))
              (nel       (length v))
              (out-fname (capi:prompt-for-file "Output"
@@ -185,7 +185,7 @@
                     (ironclad:encrypt-in-place cipher wrk)
                     (map-into seg #'logxor wrk seg)
                     ))
-          (setf v (loenc:decode v))
+          (setf v (ser:decode v))
           (format t "Path: ~A~%" (aref v 0))
           (setf v (aref v 1))
           (let ((out-fname (capi:prompt-for-file "Output"

@@ -50,7 +50,7 @@ THE SOFTWARE.
   ())
 
 (defclass <map>    (<abstract-kv>)
-  ((tbl :accessor lm-val :initform (maps:empty))))
+  ((tbl :accessor lm-val :initform (maps:make-tree))))
 
 (defclass <hash-table> (<abstract-kv>)
   ((tbl :accessor lm-val :initform (make-hash-table))))
@@ -314,7 +314,7 @@ THE SOFTWARE.
 (defun plist-to-map (plist)
   (assert (plist-p plist))
   (um:nlet iter ((lst (reverse plist))
-                 (map (maps:empty)))
+                 (map (maps:make-tree)))
     (if lst
         (destructuring-bind (v k . tl) lst
           (go-iter tl (maps:add map k v)))
@@ -323,10 +323,10 @@ THE SOFTWARE.
 (defun alist-to-map (alist)
   (foldl (um:lambda* ((k . v) map)
            (maps:add map k v))
-         (reverse alist) (maps:empty)))
+         (reverse alist) (maps:make-tree)))
 
 (defun hash-table-to-map (tbl)
-  (let ((map (maps:empty)))
+  (let ((map (maps:make-tree)))
     (maphash #'(lambda (k v)
                  (setf map (maps:add map k v)))
              tbl)

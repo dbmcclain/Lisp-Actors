@@ -164,7 +164,7 @@ THE SOFTWARE.
              (end   (search snip buf
                             :test #'char-equal
                             :from-end t)))
-        (loenc:decode
+        (ser:decode
          (3ctr-hmac-decrypt-sequence
           (decode-bytes-from-base64 (subseq buf (+ start (length snip)) end))
           key))
@@ -172,7 +172,7 @@ THE SOFTWARE.
 
 (defun read-user-license (filename)
   (destructuring-bind (user-uuid r pt)
-      (loenc:decode (decode-bytes-from-base64 (hcl:file-string filename)))
+      (ser:decode (decode-bytes-from-base64 (hcl:file-string filename)))
     (values user-uuid
             (ecc-sub pt
                      ;; obfuscated ecc-mul with *licensing-private-key*
@@ -198,7 +198,7 @@ THE SOFTWARE.
                                            (kdf 256 "Signature Share" bundle-id)))
            (decrypt-pt    (compute-decryption-pt-from-shares unlock-pt decrypt-share))
            (key           (encode-bytes-to-base64
-                           (loenc:encode decrypt-pt))))
+                           (ser:encode decrypt-pt))))
       (with-sensitive-objects (key unlock-share unlock-pt decrypt-share decrypt-pt)
         (3ctr-hmac-decrypt-file inp-file filename-out key)) )))
 

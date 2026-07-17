@@ -914,7 +914,7 @@ export zle_bracketed_paste=( )
 ;; --------------------------------------------
 
 (defun aont-encode (obj)
-  (let* ((bytes  (loenc:encode obj))
+  (let* ((bytes  (ser:encode obj))
          (nel    (length bytes))
          (key    (make-random-v 32)) ;; AES/256
          (nonce  (make-random-v 16))
@@ -955,7 +955,7 @@ export zle_bracketed_paste=( )
 ;; --------------------------------------------
 
 (defun simple-rs-prep (obj)
-  (let* ((bytes  (loenc:encode obj))
+  (let* ((bytes  (ser:encode obj))
          (nel    (length bytes)))
     (multiple-value-bind (ngrps nrem)
         ;; 16 for nonce
@@ -1058,7 +1058,7 @@ export zle_bracketed_paste=( )
         (unless (equalp hashv canary)
           (error "Can't decode AONT")
           ))
-      (loenc:decode bytes :start 16))
+      (ser:decode bytes :start 16))
     ))
 
 (defun aont-rs-decode (vecs)
@@ -1067,7 +1067,7 @@ export zle_bracketed_paste=( )
 ;; --------------------------------------------
 
 (defun simple-rs-decode (vecs)
-  (loenc:decode (rs-decode-bytes vecs)))
+  (ser:decode (rs-decode-bytes vecs)))
 
 ;; --------------------------------------------
 

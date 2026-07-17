@@ -187,7 +187,7 @@ THE SOFTWARE.
   (let* ((d     (get-private-key id))
          (kpub  (get-public-key id))
          (uuid  (uuid:uuid-to-byte-array (uuid:make-v1-uuid)))
-         (xhmac (sha_d-256 (loenc:encode (list hmac uuid kpub))))
+         (xhmac (sha_d-256 (ser:encode (list hmac uuid kpub))))
          (e     (convert-bytes-to-int xhmac)))
     (with-mod *ecc-r*
       (um:nlet iter ()
@@ -212,7 +212,7 @@ THE SOFTWARE.
         (assert (< 0 s *ecc-r*))
         (ecc-validate-public-key kpub)
         (with-mod *ecc-r*
-          (let* ((xhmac (sha_d-256 (loenc:encode (list hmac uuid kpub))))
+          (let* ((xhmac (sha_d-256 (ser:encode (list hmac uuid kpub))))
                  (e     (convert-bytes-to-int xhmac))
                  (w     (m/ s))
                  (u1    (m* e w))
@@ -269,7 +269,7 @@ THE SOFTWARE.
 
 (defun encrypt-with-engines (cipher hmac msg)
   (with-sensitive-objects (cipher hmac)
-    (let ((buf (loenc:encode msg :align 16)))
+    (let ((buf (ser:encode msg :align 16)))
       (safe-update-hmac hmac buf)
       (safe-encrypt-in-place cipher buf)
       (let ((dig (ironclad:hmac-digest hmac)))
@@ -283,7 +283,7 @@ THE SOFTWARE.
     (let ((dig (ironclad:hmac-digest hmac)))
       (unless (equalp m dig)
         (error "Invalid HMAC"))
-      (loenc:decode c)) ))
+      (ser:decode c)) ))
 
 ;; -------------------------------------------
 

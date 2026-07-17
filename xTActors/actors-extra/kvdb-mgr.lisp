@@ -429,7 +429,7 @@
           
           ((:show)
            (with-db db
-             (let ((map  (maps:empty))
+             (let ((map  (maps:make-tree))
                    (keys nil))
                (db-map db
                        (lambda (k v)

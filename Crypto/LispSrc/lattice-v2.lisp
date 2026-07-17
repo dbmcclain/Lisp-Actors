@@ -197,7 +197,7 @@
 
 (defun lat2-enc (pkey &rest objs)
   ;; general object encryption
-  (lat2-encode pkey (loenc:encode (loenc:unshared-list objs)
+  (lat2-encode pkey (ser:encode (loenc:unshared-list objs)
                                   :max-portability t)))
 
 ;; ---------------------------------------------------------------
@@ -227,7 +227,7 @@
 
 (defun lat2-dec (skey cs)
   ;; general object decryption
-  (values-list (loenc:decode (lat2-decode skey cs))))
+  (values-list (ser:decode (lat2-decode skey cs))))
 
 ;; ----------------------------------------------------------------
 

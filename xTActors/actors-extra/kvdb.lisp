@@ -240,7 +240,7 @@
                      #-:LISPWORKS '())))
 
 (defun become-maps ()
-  (convert-db (maps:empty)))
+  (convert-db (maps:make-tree)))
 
 (defun become-pfht ()
   (convert-db (pfht:make-hash-table
@@ -299,7 +299,7 @@
 
 (β (db)
     (send kvdb β :req)
-  (let ((x (maps:empty))
+  (let ((x (maps:make-tree))
         y)
     (db-map db (lambda (k v)
                  (push (list k v) y)

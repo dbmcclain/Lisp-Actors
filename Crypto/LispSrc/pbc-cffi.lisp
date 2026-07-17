@@ -1088,7 +1088,7 @@ Certification includes a BLS Signature on the public key."
   (let* ((pkid      (make-public-subkey pkey id))
          (tstamp    (uuid:uuid-to-byte-array
                      (uuid:make-v1-uuid)))
-         (msg-bytes (loenc:encode msg))
+         (msg-bytes (ser:encode msg))
          (nmsg      (length msg-bytes))
          (xlen      (* 32 (ceiling nmsg 32)))
          (xbytes    (if (< nmsg xlen)
@@ -1139,7 +1139,7 @@ Certification includes a BLS Signature on the public key."
           (with-fli-buffers ((hbuf 32        hval)
                              (kbuf *g2-size* pkey))
             (when (zerop (_sakai-kasahara-check *context* rbuf kbuf hbuf 32))
-              (loenc:decode msg)))
+              (ser:decode msg)))
           )))))
 
 ;; -----------------------------------------------

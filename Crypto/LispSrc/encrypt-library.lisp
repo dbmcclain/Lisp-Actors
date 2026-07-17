@@ -105,7 +105,7 @@ THE SOFTWARE.
     (ensure-directories-exist filename)
     (write-share-file
      (3ctr-hmac-encrypt-sequence
-      (loenc:encode (list expiration
+      (ser:encode (list expiration
                           (ecc-div (compute-unlock-share-pt user-uuid unlock-pt)
                                    expiration)))
       (kdf 256 "User Share" bundle-id user-uuid))
@@ -148,14 +148,14 @@ THE SOFTWARE.
     (format t "~A~&~A~&~A~&"
             *snippy-start*
             (encode-bytes-to-base64
-             (loenc:encode
+             (ser:encode
               (loop for enc in (list enc-clas enc-vTun enc-vDBM)
                     for bid in (list *clas-user-share-file*
                                      *vTuning-user-share-file*
                                      *vDBM-user-share-file*)
                     collect
                     (3ctr-hmac-encrypt-sequence
-                     (loenc:encode (list expiration (ecc-div enc expiration)))
+                     (ser:encode (list expiration (ecc-div enc expiration)))
                      (kdf 256 "User Share"  bid user-uuid)))))
             *snippy-stop*) ))
 
@@ -198,7 +198,7 @@ p8Tog6CksDNNft2DbxZoOh+najBKyP8oActuz5sEDQzGVFOZD9aOZujdvmhdyqOua5Gbdjqw+kIU
   (let* ((from (+ (length *snippy-start*) (search *snippy-start* shares-enc)))
          (to   (search *snippy-stop* shares-enc :start2 from)))
     (destructuring-bind (clas-share-pt vtuning-share-pt vDBM-share-pt)
-        (loenc:decode
+        (ser:decode
          (decode-bytes-from-base64
           (subseq shares-enc from to)))
       (save-user-share-file *clas-user-share-file*      clas-share-pt)
@@ -244,12 +244,12 @@ p8Tog6CksDNNft2DbxZoOh+najBKyP8oActuz5sEDQzGVFOZD9aOZujdvmhdyqOua5Gbdjqw+kIU
   ;;
   (let* ((encryption-pt (ecc-mul *ecc-gen* (convert-bytes-to-int (ctr-drbg 571))))
          (key           (encode-bytes-to-base64
-                         (loenc:encode encryption-pt)) ))
+                         (ser:encode encryption-pt)) ))
     (with-sensitive-objects (key)
       (3ctr-hmac-encrypt-file filename-in filename-out key))
     (write-share-file
      (3ctr-hmac-encrypt-sequence
-      (loenc:encode
+      (ser:encode
        (compute-decryption-share unlock-pt encryption-pt))
       (kdf 256 "Signature Share" bundle-id))
      (concatenate 'string (namestring filename-out) "-x")) ))

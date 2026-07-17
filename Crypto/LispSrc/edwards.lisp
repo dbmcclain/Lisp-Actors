@@ -910,7 +910,7 @@ Else re-probe with (X^2 + 1)."
       )))
 
 (defun ed-dsa (msg skey)
-  (let* ((msg-enc   (loenc:encode msg))
+  (let* ((msg-enc   (ser:encode msg))
          (pkey      (ed-nth-pt skey))
          (pkey-cmpr (ed-compress-pt pkey)))
     ;; r = the random challenge value for Fiat-Shamir sigma proof
@@ -950,7 +950,7 @@ Else re-probe with (X^2 + 1)."
                        (hash-to-grp-range
                         (levn r    nbcmpr)
                         (levn pkey nbcmpr)
-                        (loenc:encode msg))))
+                        (ser:encode msg))))
               *ed-h*))
      )))
 

@@ -383,8 +383,8 @@
           )))
 
 (defun flat-enc (pkey &rest objs)
-  (flat-encode pkey (loenc:encode (loenc:unshared-list objs
-                                                       :max-portability t))))
+  (flat-encode pkey (ser:encode (loenc:unshared-list objs
+                                                     :max-portability t))))
 
 ;; ------------------------------------------------------------------
 
@@ -423,7 +423,7 @@
           )))
 
 (defun flat-dec (skey cs)
-  (values-list (loenc:decode (flat-decode skey cs))))
+  (values-list (ser:decode (flat-decode skey cs))))
 
 ;; -----------------------------------------------------------------
 

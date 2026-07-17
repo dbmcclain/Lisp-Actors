@@ -196,7 +196,7 @@ from calling the function."
   (ensure-8bitv (namestring p)))
 
 (defmethod ensure-8bitv (x)
-  (ensure-8bitv (loenc:encode x)))
+  (ensure-8bitv (ser:encode x)))
 
 ;; handy output defn
 #||#
@@ -297,7 +297,7 @@ from calling the function."
     (s-base64:encode-base64-bytes bytes s)))
  
 (defun encode-object-to-base64 (obj)
-  (encode-bytes-to-base64 (loenc:encode obj)))
+  (encode-bytes-to-base64 (ser:encode obj)))
 
 (defun decode-bytes-from-base64 (str)
   (subseq (with-input-from-string (s str)
@@ -305,7 +305,7 @@ from calling the function."
           0))
   
 (defun decode-object-from-base64 (str)
-  (loenc:decode (decode-bytes-from-base64 str)))
+  (ser:decode (decode-bytes-from-base64 str)))
 
 ;; -----------------------------------------------------------------------------
 ;;
@@ -333,7 +333,7 @@ from calling the function."
   (vec-repr:base58 (vec-repr:lev bytes)))
  
 (defun encode-object-to-base58 (obj)
-  (encode-bytes-to-base58 (loenc:encode obj)))
+  (encode-bytes-to-base58 (ser:encode obj)))
 
 (defun decode-bytes-from-base58 (str &optional nb)
   (declare (ignore nb))
@@ -341,7 +341,7 @@ from calling the function."
                              :str str)))
   
 (defun decode-object-from-base58 (str)
-  (loenc:decode (decode-bytes-from-base58 str)))
+  (ser:decode (decode-bytes-from-base58 str)))
 
 ;; --------------------------------------------------
 
@@ -640,7 +640,7 @@ from calling the function."
   ;; std-hash ensures standard encoding of msgs
   ;; before applying iterated hash
   (apply #'hash-with-protocol hash-type
-                      (mapcar #'loenc:encode msgs)))
+                      (mapcar #'ser:encode msgs)))
 
 ;; -------------------------------------------
 #|

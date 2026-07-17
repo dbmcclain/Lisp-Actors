@@ -69,7 +69,7 @@ THE SOFTWARE.
 
 #|
 (defmethod hashable (x)
-  (loenc:encode x))
+  (ser:encode x))
 |#
 
 (defgeneric hashable (x)
@@ -79,7 +79,7 @@ THE SOFTWARE.
    (hashable (bev x)))
   (:method ((x cons))
    (or (ignore-errors
-         (loenc:encode (mapcar #'hashable x)))
+         (ser:encode (mapcar #'hashable x)))
        (call-next-method)))
   (:method ((x sequence))
    (or (ignore-errors
@@ -93,7 +93,7 @@ THE SOFTWARE.
   (:method ((x pathname))
    (hashable (namestring x)))
   (:method (x)
-   (loenc:encode x)))
+   (ser:encode x)))
 
 
 ;; -------------------------------------------------

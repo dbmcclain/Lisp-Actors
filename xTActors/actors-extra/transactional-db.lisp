@@ -285,7 +285,7 @@
    ;; -------------------
    ;; message from kick-off starter routine
    ((cust :open db-path)
-    (let ((db (maps:empty)))
+    (let ((db (maps:make-tree)))
       (handler-case
           (with-open-file (f db-path
                              :direction         :input
@@ -321,7 +321,7 @@
                      (error "Not a db file"))
                     )))
         (error ()
-          (setf db (maps:add (maps:empty) 'version (uuid:make-v1-uuid)))
+          (setf db (maps:add (maps:make-tree) 'version (uuid:make-v1-uuid)))
           (full-save db-path db)))
       (become (save-database-beh db-path db))
       (send cust :opened db)))
@@ -396,7 +396,7 @@
                            t)
                        (error ()
                          nil)))
-        (upmap  (maps:find map *unpersistable-key* (maps:empty))))
+        (upmap  (maps:find map *unpersistable-key* (maps:make-tree))))
     (if persistable
         (maps:add (maps:add map *unpersistable-key* (maps:remove upmap key))
                   key val)
@@ -412,7 +412,7 @@
                       map
                     (maps:remove map key))))
     (when (eq new-map map)
-      (let* ((upmap (maps:find map *unpersistable-key* (maps:empty)))
+      (let* ((upmap (maps:find map *unpersistable-key* (maps:make-tree)))
              (val   (maps:find upmap key *not-found*)))
         (unless (eq val *not-found*)
           (setf new-map (maps:add map *unpersistable-key*
@@ -531,10 +531,10 @@
 (send kvdb println :add :tst (lambda* _))
 (send kvdb writeln :lookup :tst)
 
-(let ((m (maps:empty)))
+(let ((m (maps:make-tree)))
   (setf m (maps:add m :dave :dog))
   (eql m (maps:add m :dave :dog)))
-(let ((m (sets:empty)))
+(let ((m (sets:make-tree)))
   (setf m (sets:add m :dave))
   (eql m (sets:add m :dave)))
 

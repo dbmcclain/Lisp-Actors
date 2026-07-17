@@ -290,7 +290,7 @@ THE SOFTWARE.
   (with-open-file (fp (vtuning-auth-path)
                       :element-type 'ubyte
                       :direction :input)
-    (loenc:deserialize fp)))
+    (ser:deserialize fp)))
 
 (defun write-vtuning-authorizations (auths)
   (with-open-file (fp (vtuning-auth-path)
@@ -298,7 +298,7 @@ THE SOFTWARE.
                       :direction :output
                       :if-exists :supersede
                       :if-does-not-exist :create)
-    (loenc:serialize auths fp)))
+    (ser:serialize auths fp)))
 
 (def-cached-var vtuning-authorized (read-vtuning-authorizations))
 

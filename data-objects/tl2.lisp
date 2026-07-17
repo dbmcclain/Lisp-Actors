@@ -298,7 +298,7 @@
             (retry-for-write-exn ()
               (when parent
                 (retry-for-write))
-              (setf rwmap (maps:empty))
+              (setf rwmap (maps:make-tree))
               (go-iter fns))
             
             (abort-exn (exn)

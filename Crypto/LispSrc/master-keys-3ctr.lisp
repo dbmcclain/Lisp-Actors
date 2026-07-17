@@ -103,7 +103,7 @@ ib6jotKP7ZywtOeS5+ao8azt1OWlwb+DyUQ=")) ))
          (sh  (decode-b64 enc))
          (x   (getf sh :x0))
          (y   (solve-lagrange (list k1 k2) x)))
-    (loenc:decode
+    (ser:decode
      (3ctr-hmac-decrypt-sequence (getf sh :crypt)
                                  (encode-b64 y)))))
      

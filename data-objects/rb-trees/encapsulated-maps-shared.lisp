@@ -6,8 +6,13 @@
 
 (um:make-encapsulated-type SE SE? SD)
 
-(defun make-shared-map (&key (tree-type sets::+default-tree-type+))
-  (SE (make-tree :tree-type tree-type)))
+(defun make-shared-map (&rest args
+                              &key
+                              tree-type
+                              compare-fn
+                              replace-p-fn)
+  (declare (ignore tree-type compare-fn replace-p-fn))
+  (SE (apply #'make-tree args)))
 
 (defun rd-map (map)
   (um:rd (SD map)))
@@ -106,8 +111,8 @@
 
 (defmethod erase ((map SE))
   (rmw-map (m map)
-    (um:with m
-      :nodes (empty))))
+    (funcall m :clone-with (empty))
+    ))
 
 ;; -----------------------------------------
 ;; Encapsulation coercion
