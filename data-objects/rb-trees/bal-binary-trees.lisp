@@ -265,42 +265,40 @@ THE SOFTWARE.
 ;; i.e., the value from the leftmost node
 
 (defmethod min-elt ((tree tree))
-  (labels
-      ((min-elt (tree)
-         ;; -> key, val, found-p
-         ;; execute with S(1)
-         (and tree
-              (um:nlet iter ((tree tree))
-                (with-node-bindings (l k v) tree
-                  (if l
-                      (go-iter l)
-                    (values k v t))
-                  ))
-              )))
-    (min-elt (tree-nodes tree))
-    ))
+  ;; -> key, val, found-p
+  ;; execute with S(1)
+  (let ((nodes  (tree-nodes tree)))
+    (and nodes
+         (um:nlet iter ((nodes nodes))
+           (with-node-bindings (l k v) nodes
+             (if l
+                 (go-iter l)
+               (values k v t))
+             ))
+         )))
 
 ;; remove-min-elt - remove the smallest element of the set
 ;; i.e., remove the leftmost node
 
-(defmethod remove-min-elt (tree)
+(defmethod remove-min-elt (nodes)
   ;; execute with S(1)
   ;; Return min-element, and rebalanced tree excluding that min-element
-  (um:nlet iter ((tree tree)
-                 (acc  nil))
-    (with-node-bindings (l k v r) tree
-      (if l
-          (go-iter l (cons tree acc))
-        (um:nlet rebuild ((mink k)
-                          (minv v)
-                          (tree r)
-                          (acc  acc))
-          (if acc
-              (with-node-bindings (_ k v r) (car acc)
-                (go-rebuild mink minv (bal tree k v r) (cdr acc)))
-            (values mink minv tree)))
-        ))
-    ))
+  (and nodes
+       (um:nlet iter ((nodes nodes)
+                      (acc   nil))
+         (with-node-bindings (l k v r) nodes
+           (if l
+               (go-iter l (cons nodes acc))
+             (um:nlet rebuild ((mink  k)
+                               (minv  v)
+                               (nodes r)
+                               (acc   acc))
+               (if acc
+                   (with-node-bindings (_ k v r) (car acc)
+                     (go-rebuild mink minv (bal nodes k v r) (cdr acc)))
+                 (values mink minv nodes)))
+             )))
+       ))
 
 (defmethod remove-min-elt ((tree tree))
   (multiple-value-bind (mink minv new-nodes)
@@ -324,20 +322,17 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod max-elt ((tree tree))
-  (labels
-      ((max-elt (tree)
-         ;; -> val, found-p
-         ;; execute with S(1)
-         (and tree
-              (um:nlet iter ((tree tree))
-                (with-node-bindings (_ k v r) tree
-                  (if r
-                      (go-iter r)
-                    (values k v t))
-                  ))
-              )))
-    (max-elt (tree-nodes tree))
-    ))
+  ;; -> val, found-p
+  ;; execute with S(1)
+  (let ((nodes  (tree-nodes tree)))
+    (and nodes
+         (um:nlet iter ((nodes nodes))
+           (with-node-bindings (_ k v r) nodes
+             (if r
+                 (go-iter r)
+               (values k v t))
+             ))
+         )))
 
 ;; remove-max-elt -- remove the largest element of the set
 ;; also useful for priority-queues
@@ -345,23 +340,24 @@ THE SOFTWARE.
 (defmethod remove-max-elt ((tree tree))
   ;; execute with S(1)
   ;; Return max-element, and new balanced tree not containing that max-element.
-  (let ((tree-arg tree))
-    (um:nlet iter ((tree (tree-nodes tree))
-                   (acc  nil))
-      (with-node-bindings (l k v r) tree
-        (if r
-            (go-iter r (cons tree acc))
-          (um:nlet rebuild ((maxk k)
-                            (maxv v)
-                            (tree l)
-                            (acc  acc))
-            (if acc
-                (with-node-bindings (l k v) (car acc)
-                  (go-rebuild maxk maxv (bal l k v tree) (cdr acc)))
-              (values maxk maxv (um:with tree-arg
-                                  :nodes tree))))
-          ))
-      )))
+  (let ((nodes (tree-nodes tree)))
+    (and nodes
+         (um:nlet iter ((nodes nodes)
+                        (acc   nil))
+           (with-node-bindings (l k v r) nodes
+             (if r
+                 (go-iter r (cons nodes acc))
+               (um:nlet rebuild ((maxk  k)
+                                 (maxv  v)
+                                 (nodes l)
+                                 (acc   acc))
+                 (if acc
+                     (with-node-bindings (l k v) (car acc)
+                       (go-rebuild maxk maxv (bal l k v nodes) (cdr acc)))
+                   (values maxk maxv (um:with tree
+                                       :nodes nodes))))
+               )))
+         )))
 
 ;; --------------------------------------------
 #|
@@ -447,24 +443,22 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------------------------------
 
-(defun merge-trees (t1 t2)
-  ;; merge -- merge two trees l and r into one.
-  ;; All elements of l must precede the elements of r
-  ;; Assume height difference <= 2
-  ;; (for internal use)
-  (cond ((null t1) t2)
-        ((null t2) t1)
-        (t  (multiple-value-call #'bal t1 (remove-min-elt t2)))
-        ))
-
-
 (defmethod remove (tree key)
   (um:with tree
     :nodes (invoke 'remove tree key)))
 
 (defun make-remove-fn (compare-fn)
   (labels
-      ((remove (tree key)
+      ((merge-trees (t1 t2)
+         ;; merge -- merge two trees l and r into one.
+         ;; All elements of l must precede the elements of r
+         ;; Assume height difference <= 2
+         ;; (for internal use)
+         (cond ((null t1) t2)
+               ((null t2) t1)
+               (t  (multiple-value-call #'bal t1 (remove-min-elt t2)))
+               ))
+       (remove (tree key)
          ;; execute with S(Log2(N))
          (when tree
            (with-node-bindings (l k v r) tree
@@ -565,8 +559,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod compare-trees ((s1 tree) (s2 tree))
-  (assert (eq (tree-type s1)
-              (tree-type s2)))
+  (check-same-type s1 s2)
   (invoke 'compare s1 (tree-nodes s2)))
 
 (defun make-compare-fn (compare-fn)
@@ -621,8 +614,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod subset ((s1 tree) (s2 tree))
-  (assert (eq (tree-type s1)
-              (tree-type s2)))
+  (check-same-type s1 s2)
   (invoke 'subset s1 (tree-nodes s2)))
 
 (defun make-subset-fn (compare-fn)
@@ -773,7 +765,7 @@ THE SOFTWARE.
     ))
 
 (defmethod choose ((s tree))
-  (min-elt (tree-nodes s)))
+  (min-elt s))
 
 ;; --------------------------------------------
 ;; Try to do something in Lisp that is akin to ML Functors, i.e., we
