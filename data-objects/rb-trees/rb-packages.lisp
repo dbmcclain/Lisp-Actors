@@ -86,7 +86,7 @@ THE SOFTWARE.
    #:tree-type-replace-p-fn
    #:tree-nodes
    #:make-tree
-   #:define-tree-type
+   #:make-tree-type
    #:empty
    #:node
    #:node-p
@@ -147,7 +147,7 @@ THE SOFTWARE.
    #:tree-type-replace-p-fn
    #:tree-nodes
    #:make-tree
-   #:define-tree-type
+   #:make-tree-type
    #:empty
    #:copy
    #:copy-as-shared
@@ -183,7 +183,7 @@ THE SOFTWARE.
    #:tree-type-replace-p-fn
    #:tree-nodes
    #:make-tree
-   #:define-tree-type
+   #:make-tree-type
    #:make-shared-map
    #:make-unshared-map
    #:copy

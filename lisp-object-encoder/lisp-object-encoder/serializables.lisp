@@ -257,7 +257,7 @@ Answer:
 
 (defmethod deserialize-type ((type (eql :RB-SET)) data)
   (destructuring-bind (compare-fn keys) data
-    (let* ((tree-type (sets:define-tree-type :compare-fn compare-fn))
+    (let* ((tree-type (sets:make-tree-type :compare-fn compare-fn))
            (tree (sets:make-tree :tree-type tree-type)))
     (dolist (item keys)
       (sets:addf tree item))
@@ -265,7 +265,7 @@ Answer:
 
 (defmethod deserialize-type ((type (eql :RB-MAP)) data)
   (destructuring-bind (compare-fn replace-if-fn keys vals) data
-    (let* ((type (maps:define-tree-type :compare-fn compare-fn :replace-p-fn replace-if-fn))
+    (let* ((type (maps:make-tree-type :compare-fn compare-fn :replace-p-fn replace-if-fn))
            (tree (maps:make-tree :tree-type type)))
       (map nil (lambda (k v)
                  (maps:addf tree k v))

@@ -42,8 +42,8 @@
   (tree  nil :read-only t))
 
 (defvar +default-hash-table-tree-type+
-  (maps:define-tree-type :compare-fn   '-
-                         :replace-p-fn 'maps:/eql))
+  (maps:make-tree-type :compare-fn   '-
+                       :replace-p-fn 'maps:/eql))
 
 (defun make-hash-table (&key (test 'eql) (type +default-hash-table-tree-type+))
   (%make-hash-table

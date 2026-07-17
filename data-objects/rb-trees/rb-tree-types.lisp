@@ -99,7 +99,7 @@
     (declare (ignore _))
     actual-type))
   
-(defun define-tree-type (&key (compare-fn   'ord:compare)
+(defun make-tree-type (&key (compare-fn   'ord:compare)
                               (replace-p-fn '/eql))
   (multiple-value-bind (_ actual-type)
       (um:rmw *tree-types*
@@ -115,7 +115,7 @@
     (declare (ignore _))
     actual-type))
 
-(defvar +default-tree-type+ (define-tree-type
+(defvar +default-tree-type+ (make-tree-type
                              :compare-fn   'ord:compare
                              :replace-p-fn '/eql))
 
@@ -132,7 +132,7 @@
     (setf tree-type
           (if (or compare-present-p
                   replace-present-p)
-              (define-tree-type
+              (make-tree-type
                :compare-fn   compare-fn
                :replace-p-fn replace-p-fn)
             ;; else
