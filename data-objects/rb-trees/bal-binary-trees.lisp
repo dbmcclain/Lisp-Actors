@@ -170,8 +170,7 @@ THE SOFTWARE.
 ;; --------------------------------------------
 
 (defmethod add (tree key &optional val)
-  (funcall tree :clone-with
-           (funcall tree :add key val)))
+  (funcall tree :add key val))
 
 (defun make-add-fn (compare-fn replace-fn)
   (labels
@@ -388,12 +387,7 @@ THE SOFTWARE.
 ;;   present is the set whose top node contains an element equal to x
 
 (defmethod split ((tree tree) key)
-  (with-list-bindings (l present r)
-      (funcall tree :split key)
-    (list (funcall tree :clone-with l)
-          present
-          (funcall tree :clone-with r))
-    ))
+  (funcall tree :split key))
 
 (defun make-split-fn (compare-fn)
   (labels
@@ -439,7 +433,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod remove (tree key)
-  (funcall tree :clone-with (funcall tree :remove key)))
+  (funcall tree :remove key))
 
 (defun make-remove-fn (compare-fn)
   (labels

@@ -143,29 +143,35 @@
    #+:SBCL
    sb-mop:set-funcallable-instance-function
    tree
-   (um:dlambda
-     (:nodes () nodes)
-     (:type ()  tree-type)
-     (:add (key val)
-      (funcall tree-type :add nodes key val))
-     (:remove (key)
-      (funcall tree-type :remove nodes key))
-     (:split (key)
-      (funcall tree-type :split nodes key))
-     (:split-fn ()
-      (funcall tree-type :split-fn))
-     (:mem (key)
-      (funcall tree-type :mem nodes key))
-     (:compare (s2)
-      (funcall tree-type :compare nodes (funcall s2 :nodes)))
-     (:subset (s2)
-      (funcall tree-type :subset nodes (funcall s2 :nodes)))
-     (:clone-with (nodes)
-      (make-instance 'tree
-                     :tree-type tree-type
-                     :cloning   t
-                     :nodes     nodes))
-     )))
+   (flet ((clone-me (new-nodes)
+            (make-instance 'tree
+                           :tree-type tree-type
+                           :cloning   t
+                           :nodes     new-nodes)))
+     (um:dlambda
+       (:nodes () nodes)
+       (:type ()  tree-type)
+       (:add (key val)
+        (clone-me (funcall tree-type :add nodes key val)))
+       (:remove (key)
+        (clone-me (funcall tree-type :remove nodes key)))
+       (:split (key)
+        (with-list-bindings (l present r)
+            (funcall tree-type :split nodes key)
+          (list (clone-me l)
+                present
+                (clone-me r))))
+       (:split-fn ()
+        (funcall tree-type :split-fn))
+       (:mem (key)
+        (funcall tree-type :mem nodes key))
+       (:compare (s2)
+        (funcall tree-type :compare nodes (funcall s2 :nodes)))
+       (:subset (s2)
+        (funcall tree-type :subset nodes (funcall s2 :nodes)))
+       (:clone-with (nodes)
+        (clone-me nodes))
+       ))))
 
 (defun make-tree (&rest args &key tree-type compare-fn replace-p-fn)
   ;; Args can be :TREE-TYPE, :COMPARE-FN, :REPLACE-P-FN, or none for defaults.
