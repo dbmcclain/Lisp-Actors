@@ -29,17 +29,23 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------------
 
-#+:LISPWORKS
 (defmacro! def-typed-fn (type-name params fn &environment env)
   (let ((maker-name (symb 'make- type-name)))
     (ensure-thread-eval-def maker-name
       `(progn
          (defclass ,type-name ()
            ()
-           (:metaclass clos:funcallable-standard-class))
+           (:metaclass
+            #+:LISPWORKS clos:funcallable-standard-class
+            #+:SBCL      sb-mop:funcallable-standard-class
+            ))
          
          (defmethod initialize-instance :after ((fn ,type-name) &key behavior &allow-other-keys)
-           (clos:set-funcallable-instance-function fn behavior))
+           (#+:LISPWORKS
+            clos:set-funcallable-instance-function
+            #+:SBCL
+            sb-mop:set-funcallable-instance-function
+            fn behavior))
          
          (defun ,maker-name ,params
            ;; params serve to parameterize the function body
