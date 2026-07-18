@@ -39,6 +39,36 @@
 (define-modify-macro addf (key)
   add)
 
+(defun unary-intf (fn)
+  (lambda (k v)
+    (declare (ignore v))
+    (funcall fn k)))
+
+(defmethod iter ((s set) fn)
+  (call-next-method s (unary-intf fn)))
+
+(defmethod fold ((s set) fn accu)
+  (call-next-method s (lambda (k v acc)
+                        (declare (ignore v))
+                        (funcall fn k acc))
+                    accu))
+
+(defmethod every ((s set) pred)
+  (call-next-method s (unary-intf pred)))
+
+(defmethod some ((s set) pred)
+  (call-next-method s (unary-intf pred)))
+
+(defmethod filter ((s set) pred)
+  (call-next-method s (unary-intf pred)))
+
+(defmethod partition ((s set) pred)
+  (call-next-method s (unary-intf pred)))
+
+
+(defmethod elements ((s set))
+  (mapcar #'car (call-next-method)))
+
 #+:LISPWORKS
 (defmethod view-set ((s set) &rest args
                      &key key layout)
