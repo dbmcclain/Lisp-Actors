@@ -112,7 +112,6 @@ THE SOFTWARE.
    #:every
    #:some
    #:filter
-   #:split
    #:partition
    #:cardinal
    #:elements
