@@ -8,10 +8,10 @@
 
 (defun make-shared-map (&rest args
                               &key
-                              tree-type
+                              map-type
                               compare-fn
                               replace-p-fn)
-  (declare (ignore tree-type compare-fn replace-p-fn))
+  (declare (ignore map-type compare-fn replace-p-fn))
   (SE (apply #'make-map args)))
 
 (defun rd-map (map)

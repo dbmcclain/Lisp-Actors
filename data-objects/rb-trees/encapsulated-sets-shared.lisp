@@ -8,9 +8,9 @@
 
 (defun make-shared-set (&rest args
                               &key
-                              tree-type
+                              set-type
                               compare-fn)
-  (declare (ignore tree-type compare-fn))
+  (declare (ignore set-type compare-fn))
   (SE (apply #'make-set args)))
 
 (defun rd-set (set)

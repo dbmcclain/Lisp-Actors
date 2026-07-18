@@ -8,9 +8,9 @@
 
 (defun make-unshared-set (&rest args
                                 &key
-                                tree-type
+                                set-type
                                 compare-fn)
-  (declare (ignore tree-type compare-fn))
+  (declare (ignore set-type compare-fn))
   (UE (apply #'make-set args)))
 
 (defmethod copy ((set UE))

@@ -8,10 +8,10 @@
 
 (defun make-unshared-map (&rest args
                                 &key
-                                tree-type
+                                map-type
                                 compare-fn
                                 replace-p-fn)
-  (declare (ignore tree-type compare-fn replace-p-fn))
+  (declare (ignore map-type compare-fn replace-p-fn))
   (UE (apply #'make-map args)))
 
 (defmethod copy ((map UE))
