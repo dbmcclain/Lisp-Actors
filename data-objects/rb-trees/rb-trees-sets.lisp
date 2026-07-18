@@ -22,7 +22,7 @@
   ;; Args can be :SET-TYPE, :COMPARE-FN, or none for defaults.
   (declare (ignore compare-fn))
   (apply #'make-instance 'set (if set-type
-                                  (acons :tree-type set-type args)
+                                  (list* :tree-type set-type args)
                                 args)))
 
 (defmethod make-set-like ((s set))

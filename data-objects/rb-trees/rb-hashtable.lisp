@@ -38,8 +38,8 @@
 
 (defstruct (hash-table
             (:constructor %make-hash-table))
-  (test  nil :read-only t)
-  (tree  nil :read-only t))
+  (test nil :read-only t)
+  (map  nil :read-only t))
 
 (defvar +default-hash-table-map-type+
   (maps:make-map-type :compare-fn   '-
@@ -48,7 +48,7 @@
 (defun make-hash-table (&key (test 'eql) (map-type +default-hash-table-map-type+))
   (%make-hash-table
    :test  test
-   :tree  (maps:make-map :map-type map-type)))
+   :map   (maps:make-map :map-type map-type)))
 
 (defgeneric rbht-hash (x)
   (:method (x)
@@ -68,9 +68,9 @@
   
 
 (defun find-pair (tbl key)
-  (with-slots (test tree) tbl
+  (with-slots (test map) tbl
     (let* ((hkey  (rbht-hash key))
-           (entry (maps:find tree hkey)))
+           (entry (maps:find map hkey)))
       (values (assoc key entry :test test)
               hkey
               entry)
@@ -83,11 +83,11 @@
       default)))
 
 (defun add (tbl key val)
-  (with-slots (tree) tbl
+  (with-slots (map) tbl
     (multiple-value-bind (pair hkey entry) (find-pair tbl key)
       (let ((new   (acons key val (remove pair entry))))
         (um:with tbl
-             :tree  (maps:add tree hkey new))
+             :map  (maps:add map hkey new))
         ))))
 
 (define-modify-macro addf (key val)
@@ -104,12 +104,12 @@
 |#
 
 (defun trim (tbl key)
-  (with-slots (tree) tbl
+  (with-slots (map) tbl
     (multiple-value-bind (pair hkey entry) (find-pair tbl key)
       (if pair
           (let ((new   (remove pair entry)))
             (um:with tbl
-                 :tree  (maps:add tree hkey new)))
+                 :map  (maps:add map hkey new)))
         ;; else
         tbl))))
 
@@ -120,12 +120,14 @@
   (trim tbl key))
 
 (defun clrhash (tbl)
-  (um:with tbl
-    :tree (funcall (hash-table-tree tbl) :new-tree)))
+  (with-slots (map) tbl
+    (um:with tbl
+      :map (maps:make-map-like map))
+    ))
 
 (defun maphash (fn tbl)
-  (with-slots (tree) tbl
-    (maps:iter tree (lambda (_ v)
+  (with-slots (map) tbl
+    (maps:iter map (lambda (_ v)
                       (declare (ignore _))
                       (dolist (pair v)
                         (funcall fn (car pair) (cdr pair)))
@@ -133,7 +135,7 @@
     ))
 
 (defun stats (tbl)
-  (with-slots (tree) tbl
+  (with-slots (map) tbl
     (let* ((maxct   0)
            (buckets (mapcar (lambda (pair)
                               (let* ((ent (cdr pair))
@@ -141,7 +143,7 @@
                                 (when (> nel maxct)
                                   (setf maxct nel))
                                 nel))
-                            (maps:elements tree)))
+                            (maps:elements map)))
            (ans     (make-array (1+ maxct)
                                 :element-type 'fixnum
                                 :initial-element 0)))
@@ -186,7 +188,7 @@
   (let ((tbl (make-hash-table)))
     (dotimes (ix (length *tst-coll*))
       (setf (gethash (aref *tst-coll* ix) tbl) t))
-    (maps:cardinal (hash-table-tree tbl))))
+    (maps:cardinal (hash-table-map tbl))))
 (time (tst))
 
 (defun tsth ()

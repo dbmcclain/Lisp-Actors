@@ -70,7 +70,7 @@ THE SOFTWARE.
   ;; Args can be :MAP-TYPE, :COMPARE-FN, :REPLACE-P-FN, or none for defaults.
   (declare (ignore compare-fn replace-p-fn))
   (apply #'make-instance 'map (if map-type
-                                  (acons :tree-type map-type args)
+                                  (list* :tree-type map-type args)
                                 args)))
 
 (defmethod make-map-like ((m map))
