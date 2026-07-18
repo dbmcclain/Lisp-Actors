@@ -152,7 +152,8 @@
                                        (compare-fn   'ord:compare compare-present-p)
                                        (replace-p-fn '/eql        replace-present-p)
                                        cloning
-                                       nodes)
+                                       nodes
+                                       &allow-other-keys)
   (unless cloning
     (setf tree-type
           (if (or compare-present-p

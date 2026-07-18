@@ -69,13 +69,9 @@ THE SOFTWARE.
 (defun make-map (&rest args &key map-type compare-fn replace-p-fn)
   ;; Args can be :MAP-TYPE, :COMPARE-FN, :REPLACE-P-FN, or none for defaults.
   (declare (ignore compare-fn replace-p-fn))
-  (let ((type map-type))
-    (remf args :map-type)
-    (if type
-        (apply #'make-instance 'map :tree-type type args)
-      ;; else
-      (apply #'make-instance 'map args))
-    ))
+  (apply #'make-instance 'map (if map-type
+                                  (acons :tree-type map-type args)
+                                args)))
 
 (defmethod make-map-like ((m map))
   (make-tree-like m))

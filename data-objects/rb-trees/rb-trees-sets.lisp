@@ -21,13 +21,9 @@
 (defun make-set (&rest args &key set-type compare-fn)
   ;; Args can be :SET-TYPE, :COMPARE-FN, or none for defaults.
   (declare (ignore compare-fn))
-  (let ((type set-type))
-    (remf args :set-type)
-    (if type
-        (apply #'make-instance 'set :tree-type type args)
-      ;; else
-      (apply #'make-instance 'set args))
-    ))
+  (apply #'make-instance 'set (if set-type
+                                  (acons :tree-type set-type args)
+                                args)))
 
 (defmethod make-set-like ((s set))
   (make-tree-like s))
