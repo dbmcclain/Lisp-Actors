@@ -117,14 +117,24 @@ THE SOFTWARE.
 ;; ----------------------------------------------
 
 #+:LISPWORKS
-(defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'list-form)))
-  (declare (ignore mode))
-  (let* ((elts (sets:elements map))
-         (keys (mapcar #'car elts))
-         (vals (mapcar #'cdr elts)))
-    (values keys vals)))
+(progn
+  (defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'list-form)))
+    (declare (ignore mode))
+    (let* ((elts (sets:elements map))
+           (keys (mapcar #'car elts))
+           (vals (mapcar #'cdr elts)))
+      (values keys vals nil nil 'tree )))
+
+  (defmethod sys:sort-inspector-p ((map tree) (mode (eql 'list-form)))
+    nil)
   
-#+:LISPWORKS
-(defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'graph-form)))
-  (declare (ignore mode))
-  (values :graph (sets:view-set map)))
+  (defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'graph-form)))
+    (declare (ignore mode))
+    (values :graph (sets:view-set map) nil nil 'tree))
+  
+  (defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'raw-form)))
+    (declare (ignore mode))
+    (values (list :type :nodes)
+            (list (funcall map :type)
+                  (funcall map :nodes))
+            nil nil 'tree)))

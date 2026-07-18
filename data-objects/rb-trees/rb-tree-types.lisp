@@ -62,7 +62,8 @@
   (declare (ignore mode))
   (values (list :compare-fn :replace-p-fn)
           (list (tree-type-compare-fn type)
-                (tree-type-replace-p-fn type))))
+                (tree-type-replace-p-fn type))
+          nil nil 'tree-type))
   
 ;; --------------------------------------------
 
@@ -144,10 +145,12 @@
    sb-mop:set-funcallable-instance-function
    tree
    (flet ((clone-me (new-nodes)
-            (make-instance 'tree
-                           :tree-type tree-type
-                           :cloning   t
-                           :nodes     new-nodes)))
+            (if (eq new-nodes nodes)
+                tree
+              (make-instance 'tree
+                             :tree-type tree-type
+                             :cloning   t
+                             :nodes     new-nodes))))
      (um:dlambda
        (:nodes () nodes)
        (:type ()  tree-type)

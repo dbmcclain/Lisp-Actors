@@ -209,4 +209,20 @@
 ;;    RB-Trees:  2.2             1075           0.031
 ;; Hash-tables:  0.13              53           0.004
 |#
+;; --------------------------------------------
+
+#+:LISPWORKS
+(defmethod lispworks:get-inspector-values ((tbl hash-table) (mode (eql 'stats)))
+  (declare (ignore mode))
+  (um:nlet iter ((lst   (stats tbl))
+                 (names nil)
+                 (vals  nil))
+    (if (endp lst)
+        (values (nreverse names)
+                (nreverse vals)
+                nil nil 'hash-table)
+      (go-iter (cddr lst)
+               (cons (car lst)  names)
+               (cons (cadr lst) vals))
+      )))
 
