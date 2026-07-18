@@ -7,11 +7,6 @@
 
 ;; --------------------------------------------
 
-(defun /eql (a b)
-  (not (eql a b)))
-
-;; --------------------------------------------
-
 (defclass tree-type ()
   ()
   (:metaclass
@@ -22,32 +17,21 @@
                                        &key
                                        (compare-fn   'ord:compare)
                                        (replace-p-fn '/eql))
-  (let ((add     (make-add-fn     compare-fn replace-p-fn))
-        (split   (make-split-fn   compare-fn))
-        (mem     (make-mem-fn     compare-fn))
-        (remove  (make-remove-fn  compare-fn))
-        (compare (make-compare-fn compare-fn))
-        (subset  (make-subset-fn  compare-fn)))
-    (#+:LISPWORKS
-     clos:set-funcallable-instance-function
-     #+:SBCL
-     sb-mop:set-funcallable-instance-function
-     type
-     (um:dlambda
-       (:compare-fn ()  compare-fn)
-       (:replace-p-fn () replace-p-fn)
-       (:add (nodes key val)
-        (funcall add nodes key val))
-       (:split-fn ()  split)
-       (:mem  (nodes key)
-        (funcall mem nodes key))
-       (:remove (nodes key)
-        (funcall remove nodes key))
-       (:compare (nodes1 nodes2)
-        (funcall compare nodes1 nodes2))
-       (:subset (nodes1 nodes2)
-        (funcall subset nodes1 nodes2))
-       ))))
+  (#+:LISPWORKS
+   clos:set-funcallable-instance-function
+   #+:SBCL
+   sb-mop:set-funcallable-instance-function
+   type
+   (um:dlambda
+     (:compare-fn   ()  compare-fn)
+     (:replace-p-fn ()  replace-p-fn)
+     (t (fn &rest args)
+      (aop:dflet ((compare-keys (k1 k2)
+                    (funcall compare-fn k1 k2))
+                  (replace-p (v1 v2)
+                    (funcall replace-p-fn v1 v2)))
+        (apply fn args)))
+     )))
 
 (defun tree-type-compare-fn (tree-type)
   (funcall tree-type :compare-fn))
@@ -148,22 +132,18 @@
               (make-instance 'tree
                              :tree-type tree-type
                              :cloning   t
-                             :nodes     new-nodes))))
+                             :nodes     new-nodes)))
+          (oper (fn &rest args)
+            (apply tree-type fn nodes args)))
      (um:dlambda
-       (:nodes () nodes)
-       (:type ()  tree-type)
-       (:add (key val)
-        (clone-me (funcall tree-type :add nodes key val)))
-       (:remove (key)
-        (clone-me (funcall tree-type :remove nodes key)))
-       (:split-fn ()
-        (funcall tree-type :split-fn))
-       (:mem (key)
-        (funcall tree-type :mem nodes key))
-       (:compare (s2)
-        (funcall tree-type :compare nodes (funcall s2 :nodes)))
-       (:subset (s2)
-        (funcall tree-type :subset nodes (funcall s2 :nodes)))
+       (:nodes ()  nodes)
+       (:type  ()  tree-type)
+       (:op (fn &rest args)
+        (apply #'oper fn args))
+       (:tree-op (fn &rest args)
+        (clone-me (apply #'oper fn args)))
+       (:new-tree ()
+        (clone-me (empty)))
        (:clone-with (nodes)
         (clone-me nodes))
        ))))

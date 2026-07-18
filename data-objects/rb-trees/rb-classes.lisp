@@ -18,6 +18,15 @@
 ;;   - h = node height, empty node has height 0
 ;; ----------------------------------------------------------------
 
+(defun /eql (a b)
+  (not (eql a b)))
+
+(aop:defdynfun compare-keys (k1 k2)
+  (ord:compare k1 k2))
+
+(aop:defdynfun replace-p (v1 v2)
+  (/eql v1 v2))
+
 ;; ------------------------------------------------------
 ;; Type Tree = Empty | Node(l:Tree,k:T,v:T,r:Tree,h:Fixnum)
 ;; --------------------------------------------
@@ -34,9 +43,11 @@
 (defun tree-type (tree)
   (funcall tree :type))
 
+;; --------------------------------------------
+
 (defstruct (node (:type vector)
-                 (:constructor singleton-node (k &optional v))
-                 (:constructor %create (l k v r h)))
+                 (:constructor %singleton-node (k &optional v))
+                 (:constructor %%create (l k v r h)))
   (l nil :read-only t)
   (k nil :read-only t)
   (v nil :read-only t)
@@ -46,6 +57,8 @@
 (defun node-p (x)
   (and (vectorp x)
        (= 5 (length x))))
+
+;; --------------------------------------------
 
 (defgeneric height (tree)
   (:method ((tree tree))
