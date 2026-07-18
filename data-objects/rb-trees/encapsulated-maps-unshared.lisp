@@ -12,7 +12,7 @@
                                 compare-fn
                                 replace-p-fn)
   (declare (ignore tree-type compare-fn replace-p-fn))
-  (UE (apply #'make-tree args)))
+  (UE (apply #'make-map args)))
 
 (defmethod copy ((map UE))
   (UE (UD map)))
@@ -20,7 +20,7 @@
 (defmethod is-empty ((map UE))
   (is-empty (UD map)))
 
-(defmethod add ((map UE) key &optional val)
+(defmethod add ((map UE) key val)
   (setf (UD map) (add (UD map) key val)))
 
 (defmethod remove ((map UE) key)

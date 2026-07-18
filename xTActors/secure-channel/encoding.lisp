@@ -701,7 +701,7 @@
                        (β! (auth-beh (sets:add seqs nseq)))
                        ))))
                )))
-    (create (auth-beh (sets:make-tree)))
+    (create (auth-beh (sets:make-set)))
     ))
 
 ;; --------------------------------------

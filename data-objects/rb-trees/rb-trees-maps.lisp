@@ -46,14 +46,41 @@ THE SOFTWARE.
 |#
 ;; ----------------------------------------------
 
-(defmethod find ((map tree) key &optional default)
+(defun make-map-type (&rest args &key compare-fn replace-p-fn)
+  (declare (ignore compare-fn replace-p-fn))
+  (apply #'make-tree-type args))
+
+(defmethod map-type-compare-fn ((m map))
+  (tree-type-compare-fn m))
+
+(defmethod map-type-replace-p-fn ((m map))
+  (tree-type-replace-p-fn m))
+
+(defun make-map (&rest args &key tree-type compare-fn replace-p-fn)
+  ;; Args can be :TREE-TYPE, :COMPARE-FN, :REPLACE-P-FN, or none for defaults.
+  (declare (ignore tree-type compare-fn replace-p-fn))
+  (apply #'make-instance 'map args))
+
+(defmethod make-map-like ((m map))
+  (make-tree-like m))
+
+(defmethod map-type ((m map))
+  (tree-type m))
+
+(defmethod add ((map map) key value)
+  (trees:add map key value))
+
+(define-modify-macro addf (key val)
+  add)
+
+(defmethod find ((map map) key &optional default)
   ;; eval with contant stack space - S(1)
   (multiple-value-bind (found v) (mem map key)
     (if found
         (values v t)
       default)))
 
-(defmethod mapi ((map tree) f)
+(defmethod mapi ((map map) f)
   ;; eval with S(Log2(N))
   (let ((new-map (funcall map :clone-with (empty))))
     (sets:iter map
@@ -61,14 +88,14 @@ THE SOFTWARE.
                    (addf new-map key (funcall f key val))))
     new-map))
 
-(defmethod map ((map tree) f)
+(defmethod map ((map map) f)
   (mapi map
         #'(lambda (k v)
             (declare (ignore k))
             (funcall f v))
         ))
 
-(defmethod add-plist ((map tree) plist)
+(defmethod add-plist ((map map) plist)
   ;; plist = alternating key,value pairs
   (um:nlet iter ((lst plist))
     (when lst
@@ -76,7 +103,7 @@ THE SOFTWARE.
       (go-iter (cddr lst)))
     map))
 
-(defmethod add-alist ((map tree) alist)
+(defmethod add-alist ((map map) alist)
   ;; alist list of pairs (key value)
   (um:nlet iter ((lst alist))
     (when lst
@@ -84,11 +111,11 @@ THE SOFTWARE.
       (go-iter (cdr lst)))
     map))
 
-(defmethod add-hashtable ((map tree) hashtable)
+(defmethod add-hashtable ((map map) hashtable)
   (maphash (um:curry 'addf map) hashtable)
   map)
 
-(defmethod add-keys-vals ((map tree) keys vals)
+(defmethod add-keys-vals ((map map) keys vals)
   ;; keys and vals are lists of correspoinding key/val pairs
   (um:nlet iter ((ks keys)
                  (vs vals))
@@ -96,6 +123,12 @@ THE SOFTWARE.
       (addf map (car ks) (car vs))
       (go-iter (cdr ks) (cdr vs)))
     map))
+
+#+:LISPWORKS
+(defmethod view-map ((m map) &rest args
+                     &key key layout)
+  (declare (ignore key layout))
+  (apply #'view-tree m args))
 
 ;; ----------------------------------------------
 
@@ -114,27 +147,3 @@ THE SOFTWARE.
         nil))
   |#
 #||#
-;; ----------------------------------------------
-
-#+:LISPWORKS
-(progn
-  (defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'list-form)))
-    (declare (ignore mode))
-    (let* ((elts (sets:elements map))
-           (keys (mapcar #'car elts))
-           (vals (mapcar #'cdr elts)))
-      (values keys vals nil nil 'tree )))
-
-  (defmethod sys:sort-inspector-p ((map tree) (mode (eql 'list-form)))
-    nil)
-  
-  (defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'graph-form)))
-    (declare (ignore mode))
-    (values :graph (sets:view-set map) nil nil 'tree))
-  
-  (defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'raw-form)))
-    (declare (ignore mode))
-    (values (list :type :nodes)
-            (list (funcall map :type)
-                  (funcall map :nodes))
-            nil nil 'tree)))

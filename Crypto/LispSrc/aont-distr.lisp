@@ -226,7 +226,7 @@
 (defstruct entry
   dest pkey shares rsvec)
 
-(defun share-combiner-beh (&optional (tree (maps:make-tree)))
+(defun share-combiner-beh (&optional (tree (maps:make-map)))
   (alambda
    ;; --------------------------------------------
    

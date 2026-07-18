@@ -36,7 +36,7 @@ THE SOFTWARE.
 |#
 
 ;; ------------------------------------------------------------------------
-(in-package #:com.ral.rb-trees.sets)
+(in-package #:com.ral.rb-trees)
 ;; ------------------------------------------------------------------------
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0))
@@ -90,8 +90,8 @@ THE SOFTWARE.
 (editor:setup-indent "with-list-bindings" 2)
 
 ;; ------------------------------------------------------
-;; private constructors... CREATE, BAL
-
+;; private constructors... %CREATE, %BAL
+;;
 ;; %create - create a tree node with left son l, key k, value v, and
 ;; right son r.
 ;;
@@ -138,40 +138,6 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------
 ;; add - insertion of one element
-#|
-(unless (fboundp 'false)
-  (defun false ()
-    (constantly nil)))
-
-(unless (fboundp 'true)
-  (defun true ()
-    (constantly t)))
-
-(defvar *replace-p* #'false)
-
-(defmacro with-replacement (&body body)
-  `(let ((*replace-p* #'true))
-     ,@body))
-
-(defmacro without-replacement (&body body)
-  `(let ((*replace-p* #'false))
-     ,@body))
-
-(defun ensure-function (f)
-  (cond
-   ((functionp f) f)
-   ((and (symbolp f)
-         (fboundp f)
-         (not (macro-function f)))
-    (symbol-function f))
-   (t  (constantly f))
-   ))
-
-(defmacro with-replacement-p (tf &body body)
-  `(let ((*replace-p* (ensure-function ,tf)))
-     ,@body))
-|#
-;; --------------------------------------------
 
 (defmethod add ((tree tree) key &optional val)
   (funcall tree :tree-op #'%add key val))
@@ -357,7 +323,7 @@ THE SOFTWARE.
     (addf s (random 100)))
   (setf *s* s)
   (inspect s))
-(view-set *s*)
+(view-tree *s*)
 (inspect (ser:encode *s*))
 (coerce (map 'vector #'code-char (ser:encode *s*)) 'string)
 (inspect (ser:decode (ser:encode *s*)))
@@ -369,7 +335,7 @@ THE SOFTWARE.
 (mem *s* 30)
 (inspect (remove *s* 30))
 
-(view-set (let ((xt (make-tree))) (dotimes (ix 10) (sets:addf xt ix)) xt))
+(view-tree (let ((xt (make-tree))) (dotimes (ix 10) (sets:addf xt ix)) xt))
 |#
 ;; ------------------------------------------------------------------------
 
@@ -683,7 +649,7 @@ THE SOFTWARE.
            accu)))
     (declare (dynamic-extent #'filter-aux))
     (filter-aux (tree-nodes s)
-                (funcall s :new-tree))
+                (make-tree-like s))
     ))
 
 (defmethod partition ((s tree) pred)
@@ -702,8 +668,8 @@ THE SOFTWARE.
            pair)))
     (declare (dynamic-extent #'partition-aux))
     (partition-aux (tree-nodes s)
-                   (list (funcall s :new-tree)
-                         (funcall s :new-tree)))
+                   (list (make-tree-like s)
+                         (make-tree-like s)))
     ))
 
 (defmethod cardinal ((s tree))
@@ -768,6 +734,30 @@ THE SOFTWARE.
   (min-elt s))
 
 ;; --------------------------------------------
+
+#+:LISPWORKS
+(progn
+  (defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'list-form)))
+    (declare (ignore mode))
+    (let* ((elts (sets:elements map))
+           (keys (mapcar #'car elts))
+           (vals (mapcar #'cdr elts)))
+      (values keys vals nil nil 'tree )))
+
+  (defmethod sys:sort-inspector-p ((map tree) (mode (eql 'list-form)))
+    nil)
+  
+  (defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'graph-form)))
+    (declare (ignore mode))
+    (values :graph (sets:view-set map) nil nil 'tree))
+  
+  (defmethod lispworks:get-inspector-values ((map tree) (mode (eql 'raw-form)))
+    (declare (ignore mode))
+    (values (list :type :nodes)
+            (list (funcall map :type)
+                  (funcall map :nodes))
+            nil nil 'tree)))
+
 ;; -------------------------------------------------------------
 
 #|
@@ -831,7 +821,7 @@ THE SOFTWARE.
   (defmethod key-fn (item)
     item)
   
-  (defmethod view-set ((s tree) &key (key #'key-fn) (layout :left-right) &allow-other-keys)
+  (defmethod view-tree ((s tree) &key (key #'key-fn) (layout :left-right) &allow-other-keys)
     (capi:contain
      (make-instance 'capi:graph-pane
                     :layout-function   layout
@@ -848,8 +838,8 @@ THE SOFTWARE.
 #|
 ;; examine effects of constructing a tree in pure ascending or descending order
 (inspect (let ((xt (make-tree)))  (dotimes (ix 100) (setf xt (sets:add xt ix))) xt))
-(view-set (let ((xt (make-tree))) (dotimes (ix 10) (setf xt (sets:add xt ix))) xt))
-(view-set (let ((xt (make-tree))) (dotimes (ix 10) (setf xt (sets:add xt (- 99 ix) ))) xt))
+(view-tree (let ((xt (make-tree))) (dotimes (ix 10) (setf xt (sets:add xt ix))) xt))
+(view-tree (let ((xt (make-tree))) (dotimes (ix 10) (setf xt (sets:add xt (- 99 ix) ))) xt))
 |#
 ;; -------------------------------------------------------------
 #|

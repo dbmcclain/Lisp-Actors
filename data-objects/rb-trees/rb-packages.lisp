@@ -56,49 +56,104 @@ THE SOFTWARE.
    #:order-id
    ))
 
-(defpackage #:com.ral.rb-trees.sets
+(defpackage #:com.ral.rb-trees
   (:use #:common-lisp)
-  (:shadow #:remove #:union #:intersection #:every #:some #:copy-tree)
-  #+:LISPWORKS
-  (:import-from #:lw
-   #:false
-   #:true)
-  #+nil
-  (:import-from #:cps
-   #:with-cont
-   #:=defun
-   #:=values
-   #:=bind
-   #:=nlet
-   #:=tlet
-   #:trampoline)
+  (:shadow #:remove #:union #:intersection #:every #:some #:copy-tree #:set #:map)
   (:export
    #:/eql
+   #:tree-type
+   #:tree-type-compare-fn
+   #:tree-type-replace-p-fn
+   #:make-tree-type
+   #:tree
+   #:tree-nodes
+   #:make-tree
+   #:make-tree-like
+   #:set
+   #:map
+   #:empty
+   #:node
+   #:node-p
+   #:is-empty
+   #:height
+   #:mem
+   #:add
+   #:addf
+   #:remove
+   #:removef
+   #:remove-min-elt
+   #:remove-max-elt
+   #:union
+   #:intersection
+   #:diff
+   #:subset
+   #:iter
+   #:fold
+   #:every
+   #:some
+   #:filter
+   #:partition
+   #:cardinal
+   #:elements
+   #:min-elt
+   #:max-elt
+   #:choose
+   #:view-tree
+   #:with-node-bindings
+   #:with-list-bindings
+   ))
+
+(defpackage #:com.ral.rb-trees.sets
+  (:use #:common-lisp)
+  (:shadowing-import-from #:com.ral.rb-trees
+   #:remove #:union #:intersection #:every #:some #:set
+   #:some #:every)
+  (:import-from #:com.ral.rb-trees
+   #:/eql
+   #:make-tree-type
+   #:tree-type
+   #:tree-type-compare-fn
+   #:make-tree-like
+   #:empty
+   #:node
+   #:node-p
+   #:is-empty
+   #:height
+   #:mem
+   #:removef
+   #:remove-min-elt
+   #:remove-max-elt
+   #:diff
+   #:subset
+   #:iter
+   #:fold
+   #:filter
+   #:partition
+   #:cardinal
+   #:elements
+   #:min-elt
+   #:max-elt
+   #:choose)
+  (:export
+   #:/eql
+   #:set
+   #:set-type
+   #:make-set-type
+   #:set-type-compare-fn
+   #:make-set
+   #:make-set-like
    #:make-shared-set
    #:make-unshared-set
    #:erase
    #:copy
    #:copy-as-shared
    #:copy-as-unshared
-   #:tree
-   #:tree-type
-   #:tree-type-compare-fn
-   #:tree-type-replace-p-fn
-   #:tree-nodes
-   #:make-tree
-   #:make-tree-type
    #:empty
-   #:node
-   #:node-p
    #:is-empty
-   #:singleton
    #:height
    #:mem
    #:add
    #:addf
-   #:with-replacement
-   #:without-replacement
-   #:with-replacement-p
    #:remove
    #:removef
    #:remove-min-elt
@@ -119,89 +174,66 @@ THE SOFTWARE.
    #:max-elt
    #:choose
    #:view-set
-
+   
    #:UD
    #:UE
    #:UE?
    #:SD
    #:SE
    #:SE?
-   
-   ;; privately exported for derivative packages
-   #:with-node-bindings
-   #:with-list-bindings
-   #:key-fn
    ))
 
 (defpackage #:com.ral.rb-trees.maps
   (:use #:common-lisp)
-  (:shadow #:find #:map)
-  (:import-from #:ord ;; #:com.ral.ord
-   #:compare)
-  (:import-from #:sets ;; #:com.ral.rb-trees.sets
+  (:shadow #:find)
+  (:shadowing-import-from #:com.ral.rb-trees
+   #:remove #:union #:intersection #:every #:some #:map
+   #:some #:every)
+  (:import-from #:com.ral.rb-trees
    #:/eql
-   #:tree
-   #:tree-type
+   #:make-tree-type
    #:tree-type-compare-fn
    #:tree-type-replace-p-fn
-   #:tree-nodes
-   #:make-tree
-   #:make-tree-type
+   #:make-tree-like
+   #:tree-type
    #:empty
-   #:copy
-   #:copy-as-shared
-   #:copy-as-unshared
-   #:erase
-   #:singleton
-   #:add
-   #:addf
+   #:is-empty
+   #:height
    #:mem
+   #:removef
+   #:remove-min-elt
+   #:remove-max-elt
    #:diff
-   #:cardinal
+   #:subset
    #:iter
    #:fold
    #:filter
    #:partition
+   #:cardinal
    #:elements
-   #:view-set
-   #:with-node-bindings
-   #:key-fn
-   #:is-empty
-   #:removef)
-  (:shadowing-import-from #:sets ;; #:com.ral.rb-trees.sets
-   #:remove
-   #:union
-   #:intersection
-   #:every
-   #:some)
+   #:min-elt
+   #:max-elt
+   #:choose)
   (:export
    #:/eql
-   #:tree
-   #:tree-type
-   #:tree-type-compare-fn
-   #:tree-type-replace-p-fn
-   #:tree-nodes
-   #:make-tree
-   #:make-tree-type
-   #:make-shared-map
-   #:make-unshared-map
+   #:map
+   #:map-type
+   #:make-map-type
+   #:map-type-compare-fn
+   #:map-type-replace-p-fn
+   #:make-map
+   #:make-map-like
    #:copy
    #:copy-as-shared
    #:copy-as-unshared
    #:erase
-   #:map-cell
-   #:map-cell-p
-   #:map-cell-key
-   #:map-cell-val
    #:empty
-   #:singleton
    #:is-empty
    #:add
    #:addf
    #:find
    #:remove
    #:removef
-   #:mem
    #:diff
    #:intersection
    #:union
@@ -215,8 +247,7 @@ THE SOFTWARE.
    #:every
    #:some
    #:cardinal
-   #:view-set
-   #:with-node-bindings
+   #:view-map
    #:add-plist
    #:add-alist
    #:add-hashtable
@@ -258,6 +289,7 @@ THE SOFTWARE.
    ))
 
 (project:defproject
- (#:rbht #:com.ral.rb-trees.hashtable)
- (#:pfht #:rbht))
+ (#:trees #:com.ral.rb-trees)
+ (#:rbht  #:com.ral.rb-trees.hashtable)
+ (#:pfht  #:rbht))
 

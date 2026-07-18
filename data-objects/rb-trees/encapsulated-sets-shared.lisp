@@ -9,10 +9,9 @@
 (defun make-shared-set (&rest args
                               &key
                               tree-type
-                              compare-fn
-                              replace-p-fn)
-  (declare (ignore tree-type compare-fn replace-p-fn))
-  (SE (apply #'make-tree args)))
+                              compare-fn)
+  (declare (ignore tree-type compare-fn))
+  (SE (apply #'make-set args)))
 
 (defun rd-set (set)
   (um:rd (SD set)))
@@ -38,9 +37,9 @@
   (with-set (s set)
     (SE s)))
 
-(defmethod add ((set SE) key &optional val)
+(defmethod add ((set SE) key)
   (rmw-set (s set)
-    (add s key val)))
+    (add s key)))
 
 (defmethod min-elt ((set SE))
   (with-set (s set)

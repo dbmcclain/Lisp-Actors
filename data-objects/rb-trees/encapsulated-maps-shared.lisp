@@ -12,7 +12,7 @@
                               compare-fn
                               replace-p-fn)
   (declare (ignore tree-type compare-fn replace-p-fn))
-  (SE (apply #'make-tree args)))
+  (SE (apply #'make-map args)))
 
 (defun rd-map (map)
   (um:rd (SD map)))
@@ -69,7 +69,7 @@
   (with-map (m map)
     (apply #'view-set m args)))
 
-(defmethod add ((map SE) key &optional val)
+(defmethod add ((map SE) key val)
   (rmw-map (m map)
     (add m key val)))
 

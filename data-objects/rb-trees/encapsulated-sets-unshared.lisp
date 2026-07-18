@@ -9,16 +9,15 @@
 (defun make-unshared-set (&rest args
                                 &key
                                 tree-type
-                                compare-fn
-                                replace-p-fn)
-  (declare (ignore tree-type compare-fn replace-p-fn))
-  (UE (apply #'make-tree args)))
+                                compare-fn)
+  (declare (ignore tree-type compare-fn))
+  (UE (apply #'make-set args)))
 
 (defmethod copy ((set UE))
   (UE (UD set)))
 
-(defmethod add ((set UE) k &optional v)
- (addf (UD set) k v))
+(defmethod add ((set UE) k)
+ (addf (UD set) k))
 
 (defmethod min-elt ((set UE))
   (min-elt (UD set)))

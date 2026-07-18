@@ -226,21 +226,25 @@ Answer:
 ;; non-existent types even when the direct compilation is bypassed
 ;; using the UNLESS guards.
 
-(defmethod make-serializable ((obj sets:tree))
-  (let* ((elts  (sets:elements obj))
+(defmethod make-serializable ((obj maps:map))
+  (let* ((elts  (maps:elements obj))
          (keys  (mapcar #'car elts))
          (vals  (mapcar #'cdr elts))
          (type  (funcall obj :type))
-         (compare-fn    (sets:tree-type-compare-fn   type))
-         (replace-if-fn (sets:tree-type-replace-p-fn type)))
-    (if (every #'null vals)
-        (values :rb-set
-                (list compare-fn keys))
-      ;; else
-      (values :RB-MAP
-              (list compare-fn
-                    replace-if-fn
-                    keys vals)))
+         (compare-fn    (maps:map-type-compare-fn   type))
+         (replace-if-fn (maps:map-type-replace-p-fn type)))
+    (values :RB-MAP
+            (list compare-fn
+                  replace-if-fn
+                  keys vals))
+    ))
+
+(defmethod make-serializable ((obj sets:set))
+  (let* ((keys  (sets:elements obj))
+         (type  (sets:set-type obj))
+         (compare-fn (sets:set-type-compare-fn type)))
+    (values :RB-SET
+            (list compare-fn keys))
     ))
 
 (defmethod make-serializable ((obj rbht:hash-table))
@@ -257,16 +261,16 @@ Answer:
 
 (defmethod deserialize-type ((type (eql :RB-SET)) data)
   (destructuring-bind (compare-fn keys) data
-    (let* ((tree-type (sets:make-tree-type :compare-fn compare-fn))
-           (tree (sets:make-tree :tree-type tree-type)))
+    (let* ((tree-type (sets:make-set-type :compare-fn compare-fn))
+           (tree (sets:make-set :tree-type tree-type)))
     (dolist (item keys)
       (sets:addf tree item))
     tree)))
 
 (defmethod deserialize-type ((type (eql :RB-MAP)) data)
   (destructuring-bind (compare-fn replace-if-fn keys vals) data
-    (let* ((type (maps:make-tree-type :compare-fn compare-fn :replace-p-fn replace-if-fn))
-           (tree (maps:make-tree :tree-type type)))
+    (let* ((type (maps:make-map-type :compare-fn compare-fn :replace-p-fn replace-if-fn))
+           (tree (maps:make-map :tree-type type)))
       (map nil (lambda (k v)
                  (maps:addf tree k v))
            keys vals)

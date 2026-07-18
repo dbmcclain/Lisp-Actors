@@ -292,7 +292,7 @@
           :dh-pt     ,dh-pt
           :dh-key    ,dh-key
           :ack-key   ,ack-key
-          :dict      ,(maps:make-tree)
+          :dict      ,(maps:make-map)
           )))
       )))
 
@@ -308,7 +308,7 @@
           :skey      ,skey
           :dh-pt     ,ack-pt
           :dh-key    ,ack-key
-          :dict      ,(maps:make-tree)
+          :dict      ,(maps:make-map)
           )))
       )))
 
