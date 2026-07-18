@@ -1,6 +1,14 @@
 
 (In-package #:com.ral.rb-trees.sets)
 
+(defclass set (tree)
+  ()
+  (:metaclass
+   #+:LISPWORKS clos:funcallable-standard-class
+   #+:SBCL      sb-mop:funcallable-standard-class))
+
+;; --------------------------------------------
+
 (defun make-set-type (&rest args &key compare-fn)
   (declare (ignore compare-fn))
   (apply #'make-tree-type args))
@@ -8,18 +16,26 @@
 (defmethod set-type-compare-fn ((s set))
   (tree-type-compare-fn s))
 
-(defun make-set (&rest args
-                       &key
-                       tree-type
-                       compare-fn)
-  (declare (ignore tree-type compare-fn))
-  (apply #'make-instance 'set args))
+;; --------------------------------------------
+
+(defun make-set (&rest args &key set-type compare-fn)
+  ;; Args can be :SET-TYPE, :COMPARE-FN, or none for defaults.
+  (declare (ignore compare-fn))
+  (let ((type set-type))
+    (remf args :set-type)
+    (if type
+        (apply #'make-instance 'set :tree-type type args)
+      ;; else
+      (apply #'make-instance 'set args))
+    ))
 
 (defmethod make-set-like ((s set))
   (make-tree-like s))
 
 (defmethod set-type ((s set))
   (tree-type s))
+
+;; --------------------------------------------
 
 (defmethod add ((set set) key)
   (trees:add set key))

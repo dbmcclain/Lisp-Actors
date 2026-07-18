@@ -41,14 +41,14 @@
   (test  nil :read-only t)
   (tree  nil :read-only t))
 
-(defvar +default-hash-table-tree-type+
-  (trees:make-tree-type :compare-fn   '-
-                        :replace-p-fn 'maps:/eql))
+(defvar +default-hash-table-map-type+
+  (maps:make-map-type :compare-fn   '-
+                      :replace-p-fn 'maps:/eql))
 
-(defun make-hash-table (&key (test 'eql) (type +default-hash-table-tree-type+))
+(defun make-hash-table (&key (test 'eql) (map-type +default-hash-table-map-type+))
   (%make-hash-table
    :test  test
-   :tree  (maps:make-map :tree-type type)))
+   :tree  (maps:make-map :map-type map-type)))
 
 (defgeneric rbht-hash (x)
   (:method (x)

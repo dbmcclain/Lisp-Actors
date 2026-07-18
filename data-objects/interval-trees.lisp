@@ -46,7 +46,7 @@ THE SOFTWARE.
                      (cond ((= kstart istart)                  ;; K |---|
                             (values v t))                      ;; I |-----|
                            (t                                  ;; K |----|
-                                                               (%find-containing l key default))   ;; I   |---|
+                            (%find-containing l key default))  ;; I   |---|
                            )))
                   (t
                    ;; key > interval

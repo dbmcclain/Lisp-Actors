@@ -69,8 +69,6 @@ THE SOFTWARE.
    #:tree-nodes
    #:make-tree
    #:make-tree-like
-   #:set
-   #:map
    #:empty
    #:node
    #:node-p
@@ -105,13 +103,15 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.rb-trees.sets
   (:use #:common-lisp)
+  (:shadow #:set)
   (:shadowing-import-from #:com.ral.rb-trees
-   #:remove #:union #:intersection #:every #:some #:set
+   #:remove #:union #:intersection #:every #:some
    #:some #:every)
   (:import-from #:com.ral.rb-trees
    #:/eql
    #:make-tree-type
    #:tree-type
+   #:tree
    #:tree-type-compare-fn
    #:make-tree-like
    #:empty
@@ -185,15 +185,16 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.rb-trees.maps
   (:use #:common-lisp)
-  (:shadow #:find)
+  (:shadow #:find #:map)
   (:shadowing-import-from #:com.ral.rb-trees
-   #:remove #:union #:intersection #:every #:some #:map
+   #:remove #:union #:intersection #:every #:some
    #:some #:every)
   (:import-from #:com.ral.rb-trees
    #:/eql
    #:make-tree-type
    #:tree-type-compare-fn
    #:tree-type-replace-p-fn
+   #:tree
    #:make-tree-like
    #:tree-type
    #:empty

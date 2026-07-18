@@ -144,18 +144,6 @@
 (defun tree-type (tree)
   (funcall tree :type))
 
-(defclass set (tree)
-  ()
-  (:metaclass
-   #+:LISPWORKS clos:funcallable-standard-class
-   #+:SBCL      sb-mop:funcallable-standard-class))
-
-(defclass map (tree)
-  ()
-  (:metaclass
-   #+:LISPWORKS clos:funcallable-standard-class
-   #+:SBCL      sb-mop:funcallable-standard-class))
-
 ;; --------------------------------------------
 
 (defmethod initialize-instance :after ((tree tree)

@@ -46,6 +46,14 @@ THE SOFTWARE.
 |#
 ;; ----------------------------------------------
 
+(defclass map (tree)
+  ()
+  (:metaclass
+   #+:LISPWORKS clos:funcallable-standard-class
+   #+:SBCL      sb-mop:funcallable-standard-class))
+
+;; --------------------------------------------
+
 (defun make-map-type (&rest args &key compare-fn replace-p-fn)
   (declare (ignore compare-fn replace-p-fn))
   (apply #'make-tree-type args))
@@ -56,16 +64,26 @@ THE SOFTWARE.
 (defmethod map-type-replace-p-fn ((m map))
   (tree-type-replace-p-fn m))
 
-(defun make-map (&rest args &key tree-type compare-fn replace-p-fn)
-  ;; Args can be :TREE-TYPE, :COMPARE-FN, :REPLACE-P-FN, or none for defaults.
-  (declare (ignore tree-type compare-fn replace-p-fn))
-  (apply #'make-instance 'map args))
+;; --------------------------------------------
+
+(defun make-map (&rest args &key map-type compare-fn replace-p-fn)
+  ;; Args can be :MAP-TYPE, :COMPARE-FN, :REPLACE-P-FN, or none for defaults.
+  (declare (ignore compare-fn replace-p-fn))
+  (let ((type map-type))
+    (remf args :map-type)
+    (if type
+        (apply #'make-instance 'map :tree-type type args)
+      ;; else
+      (apply #'make-instance 'map args))
+    ))
 
 (defmethod make-map-like ((m map))
   (make-tree-like m))
 
 (defmethod map-type ((m map))
   (tree-type m))
+
+;; --------------------------------------------
 
 (defmethod add ((map map) key value)
   (trees:add map key value))
