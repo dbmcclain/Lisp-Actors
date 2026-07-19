@@ -39,8 +39,7 @@ THE SOFTWARE.
 (in-package #:com.ral.rb-trees)
 ;; ------------------------------------------------------------------------
 ;; equiv to #F
-(declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0))
-          (inline empty %singleton %create))
+(declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0)))
 
 ;; ----------------------------------------------------------------
 ;; Sets are represented by balanced binary trees
@@ -51,9 +50,6 @@ THE SOFTWARE.
 ;;   - r = right child
 ;;   - h = node height, empty node has height 0
 ;; ----------------------------------------------------------------
-
-(defun empty ()
-  nil)
 
 ;; ------------------------------------------------------
 ;; helpful macros...

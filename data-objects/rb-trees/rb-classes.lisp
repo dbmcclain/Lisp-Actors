@@ -5,6 +5,7 @@
 
 (in-package #:com.ral.rb-trees)
 
+(declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0)))
 ;; ----------------------------------
 
 ;; ----------------------------------------------------------------
@@ -146,6 +147,42 @@
 
 ;; --------------------------------------------
 
+(defstruct (node (:type vector)
+                 (:constructor %singleton-node (k &optional v))
+                 (:constructor %%create (l k v r h)))
+  (l nil :read-only t)
+  (k nil :read-only t)
+  (v nil :read-only t)
+  (r nil :read-only t)
+  (h 1   :type fixnum :read-only t))
+
+(defun node-p (x)
+  (and (vectorp x)
+       (= 5 (length x))))
+
+(defun empty ()
+  nil)
+
+;; --------------------------------------------
+
+(defgeneric height (tree)
+  (:method ((tree tree))
+   (height (tree-nodes tree)))
+  (:method ((x null))
+   0)
+  (:method ((x vector))
+   (node-h x)))
+
+(defgeneric is-empty (tree)
+  (:method ((tree tree))
+   (is-empty (tree-nodes tree)))
+  (:method ((tree null))
+   t)
+  (:method ((tree vector))
+   nil))
+
+;; --------------------------------------------
+
 (defmethod initialize-instance :after ((tree tree)
                                        &key
                                        (tree-type +default-tree-type+)
@@ -181,9 +218,9 @@
      (um:dlambda
        (:nodes ()  nodes)
        (:type  ()  tree-type)
-       (:op (fn &rest args)
+       (:op (fn &rest args)       ;; for fn which does not produce a tree result
         (apply #'oper fn args))
-       (:tree-op (fn &rest args)
+       (:tree-op (fn &rest args)  ;; for fn which does produce a tree result
         (clone-me (apply #'oper fn args)))
        (:new-tree ()
         (clone-me (empty)))
@@ -199,35 +236,3 @@
 (defmethod make-tree-like ((tree tree))
   (funcall tree :new-tree))
 
-;; --------------------------------------------
-
-(defstruct (node (:type vector)
-                 (:constructor %singleton-node (k &optional v))
-                 (:constructor %%create (l k v r h)))
-  (l nil :read-only t)
-  (k nil :read-only t)
-  (v nil :read-only t)
-  (r nil :read-only t)
-  (h 1   :read-only t))
-
-(defun node-p (x)
-  (and (vectorp x)
-       (= 5 (length x))))
-
-;; --------------------------------------------
-
-(defgeneric height (tree)
-  (:method ((tree tree))
-   (height (tree-nodes tree)))
-  (:method ((x null))
-   0)
-  (:method ((x vector))
-   (node-h x)))
-
-(defgeneric is-empty (tree)
-  (:method ((tree tree))
-   (is-empty (tree-nodes tree)))
-  (:method ((tree null))
-   t)
-  (:method ((tree vector))
-   nil))
