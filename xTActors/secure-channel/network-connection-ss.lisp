@@ -31,11 +31,7 @@
                (become (active-async-socket-system-beh ws-coll))
                (repeat-send self)))))
      (alambda
-      ((cust :start-tcp-server)
-       (do-nothing cust) ;; to remove compiler warnings
-       (create-ws-collection))
-
-      ((cust :start-tcp-server port)
+      ((cust :start-tcp-server &optional port)
        (do-nothing cust port) ;; to remove compiler warnings
        (create-ws-collection))
       
@@ -60,10 +56,7 @@
     ;; --------------------------------------
     ;; :START-TCP-SERVER - user level message
     
-    ((cust :start-tcp-server)
-     (send self cust :start-tcp-server *default-port*))
-    
-    ((cust :start-tcp-server port)
+    ((cust :start-tcp-server &optional (port *default-port*))
      (cond ((assoc port aio-accepting-handles) ;; already present?
             (send cust :ok))
            
@@ -147,10 +140,7 @@
       ;; :TERMINATE-SERVER - internal message
       ;; Normally sent from :SHUTDOWN, but could also be sent by user.
      
-      ((cust :terminate-server)
-       (send self cust :terminate-server *default-port*))
-     
-      ((cust :terminate-server port)
+      ((cust :terminate-server &optional (port *default-port*))
        (let ((pair (assoc port aio-accepting-handles)))
          (cond (pair
                 (without-contention
