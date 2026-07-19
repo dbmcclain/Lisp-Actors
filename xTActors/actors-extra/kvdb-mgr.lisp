@@ -170,8 +170,8 @@
       ((cust :find-multiple . keys)
        (send cust (mapcar (um:curry #'db-find db) keys)))
     
-      ((cust :find key . default)
-       (send cust (db-find db key (car default)) ))
+      ((cust :find key &optional default)
+       (send cust (db-find db key default)))
     
       ;; -------------------
       ;; We are the only one that knows the identity of saver, so this
@@ -412,8 +412,8 @@
                 
           ;; ---------------------------------------------
                 
-          ((cust :find key . default)
-           (send dbmgr cust :find key (car default)))
+          ((cust :find key &optional default)
+           (send dbmgr cust :find key default))
                 
           ((cust :find-or-add key def-val)
            (send dbmgr cust :find-or-add key def-val))

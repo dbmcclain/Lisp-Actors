@@ -56,10 +56,12 @@ THE SOFTWARE.
    #:letrec)
   (:import-from #:optima-bridge
    #:match
-   #:match-fail)
+   #:match-fail
+   #:bind-tail)
   (:export
    #:match
    #:match-fail
+   #:bind-tail
    #:letrec)
   (:export
    #:*nbr-pool*
