@@ -96,7 +96,7 @@ THE SOFTWARE.
 
 (defmethod mapi ((map map) f)
   ;; eval with S(Log2(N))
-  (let ((new-map (funcall map :clone-with (empty))))
+  (let ((new-map (make-map-like map)))
     (sets:iter map
                #'(lambda (key val)
                    (addf new-map key (funcall f key val))))
@@ -121,12 +121,14 @@ THE SOFTWARE.
   ;; alist list of pairs (key value)
   (um:nlet iter ((lst alist))
     (when lst
-      (addf map (caar lst) (cadar lst))
+      (addf map (caar lst) (cdar lst))
       (go-iter (cdr lst)))
     map))
 
 (defmethod add-hashtable ((map map) hashtable)
-  (maphash (um:curry 'addf map) hashtable)
+  (maphash (lambda (k v)
+             (addf map k v))
+           hashtable)
   map)
 
 (defmethod add-keys-vals ((map map) keys vals)
