@@ -15,7 +15,17 @@
 ;; ----------------------------------
 
 (defun convert-pat (pat &optional tlpairs)
-  ;; tlpairs - a list of (tail-symbol, tail-form) encountered along the way
+  ;; Convert list patterns into patterns that Optima can understand.
+  ;; Proper lists get converted:     '(a b c)   => '(LIST a b c),
+  ;; and dotted lists get converted: '(a b . c) => '(LIST* a b c).
+  ;;
+  ;; We also convert lists with lambda-list-keywords into dotted lists
+  ;; ahead of the above conversion.
+  ;;
+  ;; tlpairs - a list of (tail-symbol, tail-form) encountered along
+  ;; the way, which correspond to lambda-list keywords. Those will
+  ;; need an application of a lambda form to untnangle the bindings.
+  ;;
   (labels
       ((inner-convert (pat tlpairs)
          ;; Provides atoms and quoted symbols, and otherwise converts
@@ -41,16 +51,16 @@
            )))
     (declare (dynamic-extent #'inner-convert))
     
-    ;; Convert lambda-list-keywords into a pattern that Optima can understand:
-    ;;
-    ;;   (a b c &optional d) => (a b c . #:gd)    => (values (LIST* a b c #:gd)
-    ;;                                                       ((#:gd . (&optional d)) . tlpairs))
-    ;;   (a b c &key d e f)  => (a b c . #:gtail) => (values (LIST* a b c #:gail)
-    ;;                                                       ((#:gail . (&key d e f)) . tlpairs))
-    ;;   (a b c &rest d)     => (a b c . d)       => (values (LIST* a b c d)
-    ;;                                                       tlpairs)
-    ;;   (a b c d)           =>                      (values (LIST  a b c d)
-    ;;                                                       tlpairs)
+    ;;   (a b c &optional d ...) => (a b c . #:gd) => (values (LIST* a b c #:gd)
+    ;;                                                        '((#:gd . (&optional d ...)) . tlpairs))
+    ;;   (a b c &key d ...)  => (a b c . #:gtail)  => (values (LIST* a b c #:gtail)
+    ;;                                                        '((#:gtail . (&key d ...)) . tlpairs))
+    ;;   (a b c &rest d ...) => (a b c . d)        => (values (LIST* a b c d)
+    ;;                                                        '((d . (...)) . tlpairs))
+    ;;   (a b c . d)                               => (values (LIST* a b c d)
+    ;;                                                        tlpairs)
+    ;;   (a b c d)                                 => (values (LIST  a b c d)
+    ;;                                                        tlpairs)
     (let ((pos  (and (alexandria:proper-list-p pat)
                      (position-if (um:rcurry #'member lambda-list-keywords) pat))))
       (if pos
