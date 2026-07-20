@@ -60,26 +60,38 @@
     ;;   (a b c . d)                               => (values (LIST* a b c d)
     ;;                                                        tlpairs)
     ;;   (a b c d)                                 => (values (LIST  a b c d)
-    ;;                                                        tlpairs)
-    (let ((pos  (and (alexandria:proper-list-p pat)
-                     (position-if (um:rcurry #'member lambda-list-keywords) pat))))
-      (if pos
-          (let ((hd  (um:take pos pat))
-                (tl  (um:drop pos pat)))
-            (optima:match tl
-              ((list* '&rest x y)
-               (inner-convert (nconc hd x)
-                              (if y
-                                  (acons x y tlpairs)
-                                tlpairs)))
-              (_
-               (let ((tlsym   (gensym)))
-                 (inner-convert (nconc hd tlsym)
-                                (acons tlsym tl tlpairs))))
-              ))
+    ;;
+    (um:nlet iter ((p   pat)
+                   (lst nil))
+      (if (atom p)
+          ;; true for symbol (as in symbols, or ending cdr of dotted list),
+          ;; as well as for terminating NIL of proper list.
+          ;; Either way, no lambda-list-keywords encountered.
+          (inner-convert pat tlpairs)
         ;; else
-        (inner-convert pat tlpairs))
-      )))
+        (let ((tok  (car p)))
+          (case tok
+            (&rest
+             (let ((hd  (nreverse lst))
+                   (sym (cadr p))
+                   (tl  (cddr p)))
+               (inner-convert (nconc hd sym)
+                              (if tl
+                                  (acons sym tl tlpairs)
+                                tlpairs))
+               ))
+            ((&optional &key)
+             (let ((hd    (nreverse lst))
+                   (tlsym (gensym)))
+               (inner-convert (nconc hd tlsym)
+                              (acons tlsym p tlpairs))
+               ))
+            (t
+             ;; else - no lambda-list-keyword yet
+             (go-iter (cdr p)
+                      (cons tok lst)))
+            ))))
+    ))
         
 #|
 (convert-pat 15)
