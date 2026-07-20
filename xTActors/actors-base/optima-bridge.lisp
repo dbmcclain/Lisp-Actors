@@ -61,37 +61,37 @@
     ;;                                                        tlpairs)
     ;;   (a b c d)                                 => (values (LIST  a b c d)
     ;;
-    (um:nlet iter ((p   pat)
-                   (lst nil))
-      (if (atom p)
-          ;; true for symbol (as in symbols, or ending cdr of dotted list),
-          ;; as well as for terminating NIL of proper list.
-          ;; Either way, no lambda-list-keywords encountered.
-          (inner-convert pat tlpairs)
-        ;; else
-        (let ((tok  (car p)))
-          (case tok
-            (&rest
-             (let ((hd  (nreverse lst))
-                   (sym (cadr p))
-                   (tl  (cddr p)))
-               (inner-convert (nconc hd sym)
-                              (if tl
-                                  (acons sym tl tlpairs)
-                                tlpairs))
-               ))
-            ((&optional &key)
-             (let ((hd    (nreverse lst))
-                   (tlsym (gensym)))
-               (inner-convert (nconc hd tlsym)
-                              (acons tlsym p tlpairs))
-               ))
-            (t
-             ;; else - no lambda-list-keyword yet
-             (go-iter (cdr p)
-                      (cons tok lst)))
-            ))))
-    ))
+    (um:accumx (acc dot ans)
+      (um:nlet iter ((p pat))
+        (if (atom p)
+            ;; true for symbol (as in symbols, or ending cdr of dotted list),
+            ;; as well as for terminating NIL of proper list.
+            ;; Either way, no lambda-list-keywords encountered.
+            (inner-convert pat tlpairs)
+          ;; else
+          (let ((tok (car p)))
+            (case tok
+              (&rest
+               (let ((sym (cadr p))
+                     (tl  (cddr p)))
+                 (dot sym)
+                 (inner-convert (ans)
+                                (if tl
+                                    (acons sym tl tlpairs)
+                                  tlpairs))
+                 ))
+              ((&optional &key)
+               (let ((tlsym (gensym)))
+                 (dot tlsym)
+                 (inner-convert (ans)
+                                (acons tlsym p tlpairs))
+                 ))
+              (t
+               ;; else - no lambda-list-keyword yet
+               (acc tok)
+               (go-iter (cdr p)))
+              ))))
+      )))
         
 #|
 (convert-pat 15)
