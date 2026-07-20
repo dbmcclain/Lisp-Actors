@@ -13,8 +13,8 @@
   (declare (ignore compare-fn))
   (apply #'make-tree-type args))
 
-(defmethod set-type-compare-fn ((s set))
-  (tree-type-compare-fn s))
+(defmethod set-type-compare-fn ((type tree-type))
+  (tree-type-compare-fn type))
 
 ;; --------------------------------------------
 

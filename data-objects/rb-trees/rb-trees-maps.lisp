@@ -58,11 +58,11 @@ THE SOFTWARE.
   (declare (ignore compare-fn replace-p-fn))
   (apply #'make-tree-type args))
 
-(defmethod map-type-compare-fn ((m map))
-  (tree-type-compare-fn m))
+(defmethod map-type-compare-fn ((type tree-type))
+  (tree-type-compare-fn type))
 
-(defmethod map-type-replace-p-fn ((m map))
-  (tree-type-replace-p-fn m))
+(defmethod map-type-replace-p-fn ((type tree-type))
+  (tree-type-replace-p-fn type))
 
 ;; --------------------------------------------
 
