@@ -1097,6 +1097,7 @@ THE SOFTWARE.
 ;; -----------------------------------------------
 ;; functional version of ACCUM macro...
 
+#|
 (defmacro accum (accfn &body body)
   (with-unique-names (hd tl item)
     `(let* ((,hd (list nil))
@@ -1107,6 +1108,31 @@ THE SOFTWARE.
                             (list ,item)))))
          ,@body)
        (cdr ,hd))))
+|#
+
+(defmacro accumx ((accfn dotfn ansfn) &body body)
+  (um:with-unique-names (hd tl item)
+    `(let* ((,hd (list nil))
+            (,tl ,hd))
+       (labels ((,dotfn (,item)
+                  (setf ,tl
+                        (setf (cdr ,tl)
+                              ,item)))
+                (,accfn (,item)
+                  (,dotfn (list ,item)))
+                (,ansfn ()
+                  (cdr ,hd)))
+         (declare (dynamic-extent #',accfn #',dotfn #',ansfn))
+         ,@body))
+    ))
+
+(defmacro accum (accfn &body body)
+  (with-unique-names (dotfn ansfn)
+    `(accumx (,accfn ,dotfn ,ansfn)
+             ,@body
+             (,ansfn))
+    ))
+
 #||#
 ;; -----------------------------------------------
 #|
@@ -3444,3 +3470,16 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
 
 (defun cisd (x)
   (cist (deg x)))
+
+(defmacro /if (test-form f-form &optional (t-form nil t-form-present-p))
+  ;; sometimes the f-form is shorter and more direct. So allow us to
+  ;; present it first.
+  (if t-form-present-p
+      `(if ,test-form
+           ,t-form
+         ,f-form)
+    ;; else
+    `(unless ,test-form
+       ,f-form)))
+
+    

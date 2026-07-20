@@ -85,6 +85,7 @@ THE SOFTWARE.
    
    #:single-eval
    #:accum
+   #:accumx
    #:circular-list-p
    
    #:mv-constantly
@@ -864,4 +865,6 @@ THE SOFTWARE.
    #:atand
    #:phased
    #:cisd
+
+   #:/if
    ))
