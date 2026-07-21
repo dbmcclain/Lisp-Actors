@@ -96,11 +96,9 @@ THE SOFTWARE.
 
 (defmethod mapi ((map map) f)
   ;; eval with S(Log2(N))
-  (let ((new-map (make-map-like map)))
-    (sets:iter map
-               #'(lambda (key val)
-                   (addf new-map key (funcall f key val))))
-    new-map))
+  (trees:fold map (lambda (key val acc)
+                    (maps:add acc key (funcall f key val)))
+              (make-map-like map)))
 
 (defmethod map ((map map) f)
   (mapi map
