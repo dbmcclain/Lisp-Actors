@@ -221,10 +221,6 @@ Answer:
 ;; --------------------------------------------
 ;; RB-Trees
 ;;
-;; NOTE: Generating the serializers for maps:empty and sets:node by
-;; way of macrology, is done this way because LW keeps warning about
-;; non-existent types even when the direct compilation is bypassed
-;; using the UNLESS guards.
 
 (defmethod make-serializable ((obj sets:set))
   (let* ((keys  (sets:elements obj))
