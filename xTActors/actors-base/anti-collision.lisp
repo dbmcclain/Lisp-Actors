@@ -58,13 +58,20 @@
   (error "Unguarded BECOME in contention-free semantics"))
 |#
 
+(define-condition become-sans-without-contention (warning)
+  ()
+  (:report (lambda (c stream)
+             (declare (ignore c))
+             (format stream "Calling BECOME outside of WITHOUT-CONTENTION"))
+   ))
+
 (defun %do-with-disallowed-contention (msg guard fn)
   ;; If user forgets to surround their BECOME clause with
   ;; WITHOUT-CONTENTION, then we still let them try, but they have to go
   ;; through the same protection protocol as all the other clauses
   ;; using WITHOUT-CONTENTION.
   (let ((*become-hook* (lambda (beh)
-                         (warn "Calling BECOME outside of WITHOUT-CONTENTION")
+                         (warn 'become-sans-without-contention)
                          (%do-without-contention guard (lambda ()
                                                          (become beh))))
                        ))

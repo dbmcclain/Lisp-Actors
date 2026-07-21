@@ -296,16 +296,74 @@ customer, just one time."
     ))
 
 ;; --------------------------------------------
+;; Updatable Timeouts...
+;;
+;; We often have no idea how much time to allow a process. But we need
+;; a timeout to avoid indefinite delay if things might go wrong.
+;;
+;; So we set up for a renewable timeout mechanism. A ONCE gate is
+;; normally passsed along as the customer to send results to. It sets
+;; up a race between either a timeout error or a generated result back
+;; to the original customer.
+;;
+;; But a renewable gate also allows you to cancel/renew the timeout to
+;; an improved estimate as you pass milestones in the logical task.
+;;
+;; You do this by sending the message :RENEW-TIMEOUT to your customer,
+;; which is the gate.
+;;
+;; In the event that your customer is not a RENEWABLE-TIMED-GATE, then
+;; the message will most likely be ignored.
 
-(defun timed-gate (cust &optional (timeout *timeout*))
-  ;; Timer starts on successful exit of calling Actor
-  (let ((gate (once cust)))
-    (send-after timeout gate +timed-out+)
+(define-condition no-timeout (warning)
+  ()
+  (:report (lambda (c stream)
+             (declare (ignore c))
+             (format stream
+                     "Running without a timeout opens your task to indefinite suspension."))
+   ))
+
+(defun check-timeout (timeout timeout-present-p)
+  (unless timeout-present-p
+    (unless (realp timeout)
+      (warn 'no-timeout))))
+
+(defun renewable-timed-gate-beh (cust tag &optional old-tags)
+  (alambda
+   ((acust :renew-timeout &optional (timeout *timeout* timeout-present-p))
+    (check-timeout timeout timeout-present-p)
+    (let ((new-tag  (tag self)))
+      (become (renewable-timed-gate-beh cust new-tag (cons tag old-tags)))
+      (send-after timeout new-tag +timed-out+)
+      (send* acust :ok)))
+   
+   ((atag . msg) / (eq atag tag)
+    ;; The current timeout is the only thing that knows TAG.
+    (send* cust msg)
+    (become-sink))
+
+   ((atag . _) / (find atag old-tags)
+    ;; An older timeout is the only thing that knows one of these old tags.
+    ;; So we filter away these messages to avoid triggering the ONCE'ness.
+    )
+
+   (msg
+    ;; for results sent directly to this gate
+    (send* cust msg)
+    (become-sink))
+   ))
+
+(defun timed-gate (cust &optional (timeout *timeout* timeout-present-p))
+  (check-timeout timeout timeout-present-p)
+  (actors ((tag   (tag gate))
+           (gate  (create
+                   (renewable-timed-gate-beh cust tag))))
+    (send-after timeout tag +timed-out+)
     gate))
 
-(defun timed-service (svc &optional (timeout *timeout*))
-  ;; Prefer this, so that the clock only starts running when a message
-  ;; is sent to svc.
+(defun timed-service (svc &optional (timeout *timeout* timeout-present-p))
+  ;; The clock only starts running when a message is sent to svc.
+  (check-timeout timeout timeout-present-p)
   (create
    (behav (cust &rest msg)
      (let ((gate (timed-gate cust timeout)))
@@ -584,14 +642,14 @@ Example
 ;; --------------------------------------------
 ;; UNW-PROT -- Unwind-protect for Actors... sort of...
 
-(defun unw-prot (svc unwfn &optional (timeout *timeout*))
+(defun unw-prot (svc unwfn &optional (timeout *timeout* timeout-present-p))
+  (check-timeout timeout timeout-present-p)
   (create
    (lambda (cust &rest msg)
-     (with-timeout (or timeout 3)
-       (β ans
-           (send* (timed-service svc) β msg)
-         (send* cust ans)
-         (send (create unwfn)))
+     (β ans
+         (send* (timed-service svc timeout) β msg)
+       (send* cust ans)
+       (send (create unwfn))
        ))
    ))
 
@@ -671,3 +729,4 @@ Example
 (deflex inspector
   (create (lambda* args
             (inspect args))))
+
