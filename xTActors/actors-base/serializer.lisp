@@ -326,10 +326,11 @@ prefixed by the label."
 ;; ----------------------------------------------------------
 ;; Safe Serializers - use a safety timeout on response from supervised Actor.
 
-(defun safe-serializer (act &key (timeout *timeout* timeout-present-p))
+(defun safe-serializer (svc &key (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (serializer
-   (timed-service act timeout)))
+  (checked-service
+   (serializer
+    (timed-service svc timeout))))
 
 #|
 (defun tst (n)
@@ -386,3 +387,4 @@ prefixed by the label."
 (send (serializer
        (create #'send*)) println :hello)
 |#
+;; --------------------------------------------

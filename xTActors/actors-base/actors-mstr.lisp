@@ -60,8 +60,14 @@ THE SOFTWARE.
       chains, except those needed along an activation chain of interest.)
 |#
 
+(defvar *coordinating*  nil)
+
 (defun msg (target args)
-   (list* self-msg-parent target args))
+  (if self-task
+      (if *coordinating*
+          (list* self-msg-parent self-task target args)
+        (list* self-msg-parent self-task self-task target args))
+    (list* self-msg-parent nil target args)))
 
 ;; --------------------------------------------
 
@@ -352,8 +358,9 @@ THE SOFTWARE.
              (REPEAT
               (WITH-NEXT-EVENT (evt)
                 (let ((*self-msg-parent* (and (car (the cons evt)) evt))
-                      (*self*            (cadr (the cons evt)))   ;; self
-                      (*self-msg*        (cddr (the cons evt))))  ;; self-msg
+                      (*self-task*       (cadr  (the cons evt)))
+                      (*self*            (caddr (the cons evt)))   ;; self
+                      (*self-msg*        (cdddr (the cons evt))))  ;; self-msg
                   (tagbody
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))

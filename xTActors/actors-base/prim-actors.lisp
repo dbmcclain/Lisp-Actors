@@ -314,6 +314,23 @@ customer, just one time."
 ;;
 ;; In the event that your customer is not a RENEWABLE-TIMED-GATE, then
 ;; the message will most likely be ignored.
+;;
+;; NOTE: Do not mistake a LOGICAL TASK for a MACHINE THREAD. They are
+;; completely orthogonal to each other. One logical task may span the
+;; execution of any number of machine threads, back and forth between
+;; several of them, or not. Whichever thread runs a portion of a
+;; logical task is of no consequence.
+;;
+;; And any one machine thread, running a Dispatcher, can execute
+;; portions of any number of different logical tasks.
+;;
+;; Machine Threads have dynamic context surrounding function
+;; execution. The context grows and shrinks with the use of Lisp
+;; control structures. Threads have dynamic binding for special vars.
+;;
+;; Logical Tasks have no notion of dynamic context. No dynamic binding
+;; of context between Actors. Each portion of a logical task (an
+;; Actor) exists as an island function with dynamic depth 1.
 
 (define-condition no-timeout (warning)
   ()
@@ -324,26 +341,30 @@ customer, just one time."
    ))
 
 (defun check-timeout (timeout timeout-present-p)
+  ;; By referring to TIMEOUT-PRESENT-P we allow for explicitly
+  ;; cancelling a timeout timer by way of using a non-REAL TIMEOUT
+  ;; value. There might be a good reason for doing this.
   (unless timeout-present-p
     (unless (realp timeout)
       (warn 'no-timeout))))
 
-(defun renewable-timed-gate-beh (cust tag &optional old-tags)
+(defun renewable-timed-gate-beh (cust tag timer-tag)
   (alambda
-   ((acust :renew-timeout &optional (timeout *timeout* timeout-present-p))
+   ((acust :renew-timeout &optional (timeout nil timeout-present-p))
+    ;; NOTE: We do not reference *TIMEOUT* here. Can you understand why not?
     (check-timeout timeout timeout-present-p)
     (let ((new-tag  (tag self)))
-      (become (renewable-timed-gate-beh cust new-tag (cons tag old-tags)))
-      (send-after timeout new-tag +timed-out+)
+      (become (renewable-timed-gate-beh cust new-tag timer-tag))
+      (send-after timeout new-tag timer-tag)
       (send* acust :ok)))
    
-   ((atag . msg) / (eq atag tag)
-    ;; The current timeout is the only thing that knows TAG.
-    (send* cust msg)
+   ((atag _) / (eq atag tag)
+    ;; The current timeout timer is the only thing that knows TAG.
+    (send cust +timed-out+)
     (become-sink))
 
-   ((atag . _) / (find atag old-tags)
-    ;; An older timeout is the only thing that knows one of these old tags.
+   ((_ atag) / (eq atag timer-tag)
+    ;; Older timeout timers are the only things that know TIMER-TAG.
     ;; So we filter away these messages to avoid triggering the ONCE'ness.
     )
 
@@ -355,22 +376,114 @@ customer, just one time."
 
 (defun timed-gate (cust &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (actors ((tag   (tag gate))
-           (gate  (create
-                   (renewable-timed-gate-beh cust tag))))
-    (send-after timeout tag +timed-out+)
+  (actors ((tag       (tag gate))  ;; TAGs are unique and self-identifying
+           (timer-tag (tag gate))
+           (gate      (create
+                       (renewable-timed-gate-beh cust tag timer-tag))))
+    (send-after timeout tag timer-tag)
     gate))
+
+(defun coordinator (cust tag task)
+  ;; A COORDINATOR is used inside a TIMED-SERVICE to facilitate a
+  ;; shutdown of the service on timeout.
+  ;;
+  ;; All normal SEND's go through this COORDINATOR, which forwards the
+  ;; message to its intended recipient. But on timeout, the
+  ;; COORDINATOR becomes SINK after sending the timeout message to the
+  ;; customer, thereby halting all further task messaging.
+  (create
+   (alambda
+    ((atag . ans) / (eq atag tag)
+     (let ((*coordinating* t)
+           (*self-task*    task))
+       (send* cust ans)
+       (become sink)))
+    ((svc . msg)
+     (let ((*coordinating* t))
+       (send* svc msg)))
+    )))
+
+(defun do-with-new-task (cust fn)
+  ;; Set up a COODINATOR for a new logical task, then launch the
+  ;; messages in the function, fn, which begin the new logical task.
+  ;;
+  ;; Returns the TAG to the COORDINATOR to give caller a chance to shut
+  ;; down the logical task, if it needs to.
+  (actors ((coord-tag  (tag coord))
+           (coord      (coordinator cust coord-tag self-task)))
+    (let ((*self-task*    coord)
+          (*coordinating* t))
+      (funcall fn coord-tag))
+    coord-tag))
+          
+(defmacro with-new-task ((tagname cust) &body body)
+  ;; Body should contain some message sends which start a new logical task.
+  `(do-with-new-task ,cust (lambda (,tagname)
+                             (declare (ignorable ,tagname))
+                             ,@body)))
 
 (defun timed-service (svc &optional (timeout *timeout* timeout-present-p))
   ;; The clock only starts running when a message is sent to svc.
   (check-timeout timeout timeout-present-p)
   (create
    (behav (cust &rest msg)
-     (let ((gate (timed-gate cust timeout)))
-       (send* svc gate msg)))
+     ;; A new message starts a new logical task that can be killed on
+     ;; a timeout condition, or as soon as an answer is sent to
+     ;; cutomer, whichever occurs first.
+     (with-new-task (task cust)
+       (send* svc (timed-gate task timeout) msg))
+     )))
+
+;; --------------------------------------------
+
+(defun error-reply-checker (cust &optional (error-type 'error))
+  (create
+   (alambda
+    ((ans) / (typep ans error-type)
+     (error ans))
+
+    (msg
+     (send* cust msg))
+    )))
+
+(defun timeout-checked-serivce (svc)
+  ;; Make a service wrapper that checks for timeout errors on the way
+  ;; to delivering results to your customer.
+  (create
+   (lambda* (cust . msg)
+     (send* svc (error-reply-checker cust 'timeout) msg))
    ))
 
-;; ---------------------
+(defun checked-service (svc)
+  ;; Wrap service with an Actor that interposes an error checker
+  ;; customer between the service and your actual customer.
+  (create
+   (lambda* (cust . msg)
+     (send* svc (error-reply-checker cust) msg))
+   ))
+
+#|
+(let ((svc (create
+            (lambda (cust msg)
+              (sleep 2)
+              (send cust msg)))
+           ))
+  (with-timeout 1
+    (send (checked-service
+           (timed-service svc)) println :hello)))
+|#
+;; --------------------------------------------
+;; Why not simply combine CHECKED-SERVICE with TIMED-SERVICE?
+;;
+;; See SERIALIZER.
+;;
+;; A serialized service must reply to its customer. A SERIALIZER
+;; interposes itself between the service and the actual customer, in
+;; order to allow the next task to enter the serialized service.
+;;
+;; We must place any error checking on the aft of the SERIALIZER block
+;; to avoid interfering with the SERIALIZER's interposing.
+;; --------------------------------------------
 
 (defun send-to-all (actors &rest msg)
   "SEND-TO-ALL -- Send a message to all of the indicated Actors."
@@ -641,15 +754,18 @@ Example
   
 ;; --------------------------------------------
 ;; UNW-PROT -- Unwind-protect for Actors... sort of...
+;;
+;; The pattern here is just like CHECKED-SERVICE, but with an extra
+;; unwind chore to perform on the way out.
 
-(defun unw-prot (svc unwfn &optional (timeout *timeout* timeout-present-p))
+(defun unw-prot (svc unw &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
   (create
    (lambda (cust &rest msg)
      (β ans
          (send* (timed-service svc timeout) β msg)
-       (send* cust ans)
-       (send (create unwfn))
+       (send unw)
+       (send* (error-reply-checker cust) ans)
        ))
    ))
 
@@ -662,8 +778,9 @@ Example
    (lambda (cust &rest msg)
      (with-timeout timeout
        (let ((fp  (apply #'open open-args)))
-         (send* (unw-prot svc (lambda ()
-                                (close fp)))
+         (send* (unw-prot svc (create
+                               (lambda ()
+                                 (close fp))))
                 cust fp msg)
          )))
    ))

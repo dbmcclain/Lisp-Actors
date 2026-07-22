@@ -376,6 +376,11 @@ THE SOFTWARE.
    #:expect*
 
    #:inspector
+   #:check-timeout
+   #:timeout-checked-service
+   #:checked-service
+   #:with-new-task
+   #:self-task
    ))
 
 #+(OR :ALLEGRO :CCL)
