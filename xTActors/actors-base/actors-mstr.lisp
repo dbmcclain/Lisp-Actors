@@ -98,9 +98,11 @@ THE SOFTWARE.
   (:method ((x cust-can-pair))
    (cust-can-pair-cancel-flag x)))
 
-(defgeneric cancellable (cust &optional inherit-from)
+(defgeneric ensure-cancellable (cust &optional inherit-from)
   (:method (cust &optional inherit-from)
    (declare (ignore inherit-from))
+   ;; either cust already is cancellable, as a cust-can-pair,
+   ;; or else we aren't even a send target.
    cust)
   (:method ((cust actor) &optional inherit-from)
    (make-cust-can-pair

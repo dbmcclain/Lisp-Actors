@@ -382,7 +382,7 @@ THE SOFTWARE.
    #:cancelled?
    #:cancel
    #:cancel-flag
-   #:cancellable
+   #:ensure-cancellable
    ))
 
 #+(OR :ALLEGRO :CCL)

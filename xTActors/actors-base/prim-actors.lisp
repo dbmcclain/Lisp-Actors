@@ -377,13 +377,13 @@ customer, just one time."
 
 (defun timed-gate (cust &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (let ((ccust  (cancellable cust)))
+  (let ((ccust  (ensure-cancellable cust)))
     (actors ((tag       (tag gate))  ;; TAGs are unique and self-identifying
              (timer-tag (tag gate))
              (gate      (create
                          (renewable-timed-gate-beh ccust tag timer-tag))))
       (send-after timeout tag timer-tag)
-      (cancellable gate ccust))
+      (ensure-cancellable gate ccust))
     ))
 
 (defun timed-service (svc &optional (timeout *timeout* timeout-present-p))
