@@ -360,6 +360,7 @@ customer, just one time."
    
    ((atag _) / (eq atag tag)
     ;; The current timeout timer is the only thing that knows TAG.
+    (cancel cust)
     (send cust +timed-out+)
     (become-sink))
 
@@ -385,12 +386,12 @@ customer, just one time."
 
 (defun timed-service (svc &optional (timeout *timeout* timeout-present-p))
   ;; The clock only starts running when a message is sent to svc.
+  ;;
+  ;; SEND now checks whether the message target is an Actor or a CUST-CAN-PAIR.
+  ;;
   (check-timeout timeout timeout-present-p)
   (create
    (behav (cust &rest msg)
-     ;; A new message starts a new logical task that can be killed on
-     ;; a timeout condition, or as soon as an answer is sent to
-     ;; cutomer, whichever occurs first.
      (send* svc (timed-gate cust timeout) msg))
    ))
 
@@ -399,7 +400,7 @@ customer, just one time."
 (defun error-reply-checker (cust &optional (error-type 'error))
   (create
    (alambda
-    ((ans) / (typep ans error-type)
+    ((ans . _) / (typep ans error-type)
      (error ans))
 
     (msg

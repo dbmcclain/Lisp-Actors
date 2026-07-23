@@ -379,9 +379,10 @@ THE SOFTWARE.
    #:check-timeout
    #:timeout-checked-service
    #:checked-service
-   #:with-new-task
-   #:self-task
-   #:with-logical-task
+   #:cancelled?
+   #:cancel
+   #:cancel-flag
+   #:cancellable
    ))
 
 #+(OR :ALLEGRO :CCL)

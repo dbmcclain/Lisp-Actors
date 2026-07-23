@@ -64,10 +64,64 @@ THE SOFTWARE.
 
 ;; --------------------------------------------
 
-(defun send-to-pool (target &rest msg)
-  (when (viable-actor? target)
-   ;; the default SEND for foreign (non-Actor) threads
-   (%send-to-pool (msg target msg))))
+(defstruct cancel-flag
+  cancelled?)
+
+(defstruct cust-can-pair
+  ;; used to convey a customer actor and cancellation flag to a
+  ;; service Actor
+  customer
+  cancel-flag)
+
+(defgeneric cancelled? (x)
+  (:method (x)
+   nil)
+  (:method ((x cancel-flag))
+   (cancel-flag-cancelled? x))
+  (:method ((x cust-can-pair))
+   (cancelled? (cust-can-pair-cancel-flag x))))
+
+(defgeneric cancel (x)
+  (:method (x)
+   ;; do nothing...
+   )
+  (:method ((x cancel-flag))
+   (setf (cancel-flag-cancelled? x) t))
+  (:method ((x cust-can-pair))
+   (cancel (cust-can-pair-cancel-flag x))))
+
+(defgeneric cancel-flag (x)
+  (:method (x)
+   nil)
+  (:method ((x cancel-flag))
+   x)
+  (:method ((x cust-can-pair))
+   (cust-can-pair-cancel-flag x)))
+
+(defgeneric cancellable (cust &optional inherit-from)
+  (:method (cust &optional inherit-from)
+   (declare (ignore inherit-from))
+   cust)
+  (:method ((cust actor) &optional inherit-from)
+   (make-cust-can-pair
+    :customer    cust
+    :cancel-flag (or (cancel-flag inherit-from)
+                     (make-cancel-flag))
+    )))
+  
+;; --------------------------------------------
+
+(defgeneric send-to-pool (target &rest msg)
+  (:method (target &rest msg)
+   (declare (ignore msg))
+   ;; just drop it on the floor
+   )
+  (:method ((target actor) &rest msg)
+   (when (viable-actor? target)
+     ;; the default SEND for foreign (non-Actor) threads
+     (%send-to-pool (msg target msg))))
+  (:method ((target cust-can-pair) &rest msg)
+   (apply #'send-to-pool (cust-can-pair-customer target) msg)))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -84,9 +138,16 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defun send (target &rest msg)
-  (when (viable-actor? target)
-    (funcall *send-hook* (msg target msg))))
+(defgeneric send (target &rest msg)
+  (:method (target &rest msg)
+   (declare (ignore msg))
+   ;; just drop it on the floor
+   )
+  (:method ((target actor) &rest msg)
+   (when (viable-actor? target)
+     (funcall *send-hook* (msg target msg))))
+  (:method ((target cust-can-pair) &rest msg)
+   (send* (cust-can-pair-customer target) msg)))
 
 (defun send* (&rest args)
   ;; when last arg is a list that you want destructed
