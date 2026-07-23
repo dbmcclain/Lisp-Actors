@@ -383,53 +383,6 @@ customer, just one time."
     (send-after timeout tag timer-tag)
     gate))
 
-(defmacro with-logical-task (task &body body)
-  `(let ((*self-task* ,task))
-     ,@body))
-
-(defmacro coordinating (&body body)
-  `(let ((*coordinating* t))
-     ,@body))
-
-(defun coordinator (cust tag task)
-  ;; A COORDINATOR is used inside a TIMED-SERVICE to facilitate a
-  ;; shutdown of the service on timeout.
-  ;;
-  ;; All normal SEND's go through this COORDINATOR, which forwards the
-  ;; message to its intended recipient. But on timeout, the
-  ;; COORDINATOR becomes SINK after sending the timeout message to the
-  ;; customer, thereby halting all further task messaging.
-  (create
-   (alambda
-    ((atag . ans) / (eq atag tag)
-     (coordinating
-      (with-logical-task task
-        (send* cust ans)
-        (become sink))))
-    ((svc . msg)
-     (coordinating
-      (send* svc msg)))
-    )))
-
-(defun do-with-new-task (cust fn)
-  ;; Set up a COODINATOR for a new logical task, then launch the
-  ;; messages in the function, fn, which begin the new logical task.
-  ;;
-  ;; Returns the TAG to the COORDINATOR to give caller a chance to shut
-  ;; down the logical task, if it needs to.
-  (actors ((coord-tag  (tag coord))
-           (coord      (coordinator cust coord-tag self-task)))
-    (coordinating
-     (with-logical-task coord
-       (funcall fn coord-tag)))
-    coord-tag))
-          
-(defmacro with-new-task ((tagname cust) &body body)
-  ;; Body should contain some message sends which start a new logical task.
-  `(do-with-new-task ,cust (lambda (,tagname)
-                             (declare (ignorable ,tagname))
-                             ,@body)))
-
 (defun timed-service (svc &optional (timeout *timeout* timeout-present-p))
   ;; The clock only starts running when a message is sent to svc.
   (check-timeout timeout timeout-present-p)
@@ -438,9 +391,8 @@ customer, just one time."
      ;; A new message starts a new logical task that can be killed on
      ;; a timeout condition, or as soon as an answer is sent to
      ;; cutomer, whichever occurs first.
-     (with-new-task (task cust)
-       (send* svc (timed-gate task timeout) msg))
-     )))
+     (send* svc (timed-gate cust timeout) msg))
+   ))
 
 ;; --------------------------------------------
 

@@ -46,38 +46,21 @@ THE SOFTWARE.
 #|
      Message Event Frame: Just a LIST of items.
 
-     +------------+ +------------+ +------------+ +------------+ +------------+
-     | Parent Msg | | Task Coord | |   Target   | |    Msg     | |    ...     |
-     +------------+ +------+-----+ +------+-----+ +-----+------+ +------------+
-                           |              |             |
-                           |              |             +-- SELF-MSG ----->
-                           |              +-- SELF
-                           +-- SELF-TASK
+     +------------+ +------------+ +------------+ +------------+
+     | Parent Msg | |   Target   | |    Msg     | |    ...     |
+     +------------+ +------+-----+ +-----+------+ +------------+
+                           |             |
+                           |             +-- SELF-MSG ----->
+                           +-- SELF
                            
      When tracing, Parent Msg points to the parent message frame from
      which this message was derived. Otherwise, NIL. (Potentially very
      memory and GC costly to keep all parent chains, except those
      needed along an activation chain of interest.)
-
-     Task Coord is either NIL, or a COORDINATOR gate which serves to
-     forward normal messages, but blocks all logical task comms once
-     triggered to BECOME-SINK. Assuming all Actors eventually exit,
-     this is how a Logical Task can be cancelled.
-
-     When sent by an Actor involved in a Logical Task, the MSG is sent
-     by way of forwarding through the task COORDINATOR block for its Logical Task.
-
-     Otherwise, the message is sent directly to the target Actor.
 |#
 
-(defvar *coordinating*  nil)
-
 (defun msg (target args)
-  (if self-task
-      (if *coordinating*
-          (list* self-msg-parent self-task target args)
-        (list* self-msg-parent self-task self-task target args))
-    (list* self-msg-parent nil target args)))
+  (list* self-msg-parent target args))
 
 ;; --------------------------------------------
 
@@ -371,9 +354,8 @@ THE SOFTWARE.
              (REPEAT
               (WITH-NEXT-EVENT (evt)
                 (let ((*self-msg-parent* (and (car (the cons evt)) evt))
-                      (*self-task*       (cadr  (the cons evt)))
-                      (*self*            (caddr (the cons evt)))   ;; self
-                      (*self-msg*        (cdddr (the cons evt))))  ;; self-msg
+                      (*self*            (cadr (the cons evt)))   ;; self
+                      (*self-msg*        (cddr (the cons evt))))  ;; self-msg
                   (tagbody
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))

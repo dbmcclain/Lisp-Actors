@@ -63,7 +63,6 @@
 (defvar *self-beh*        nil)  ;; the behavior closure of the current Actor
 (defvar *self-msg*        nil)  ;; the full message
 (defvar *self-msg-parent* nil)  ;; for debugging, the parent message of the current message
-(defvar *self-task*       nil)  ;; a COORDINATOR for the current logical task
 
 (defvar *state*           nil)
 
@@ -92,14 +91,10 @@
 (defun fn-self-msg-parent ()
   *self-msg-parent*)
 
-(defun fn-self-task ()
-  *self-task*)
-
 (define-symbol-macro self             (fn-self))
 (define-symbol-macro self-beh         (fn-self-beh))
 (define-symbol-macro self-msg         (fn-self-msg))
 (define-symbol-macro self-msg-parent  (fn-self-msg-parent))
-(define-symbol-macro self-task        (fn-self-task))
 
 ;; --------------------------------------------
 #|

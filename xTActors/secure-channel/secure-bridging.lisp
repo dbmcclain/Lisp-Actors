@@ -134,12 +134,12 @@
 ;; -------------------------------------------------------------------
 
 (defstruct (local-service
-            (:constructor local-service (handler task)))
-  handler task)
+            (:constructor local-service (handler)))
+  handler)
 
 (defstruct (ephem-service
             (:include local-service)
-            (:constructor ephem-service (handler task &optional (ttl *default-ephemeral-ttl*))))
+            (:constructor ephem-service (handler &optional (ttl *default-ephemeral-ttl*))))
   ttl)
 
 ;; -------------------------------------------------------------------
@@ -152,7 +152,7 @@
     
     ((cust :add-service-with-id id actor)
      ;; insert ahead of any with same id
-     (let ((new-svcs (acons id (local-service actor nil) svcs)))
+     (let ((new-svcs (acons id (local-service actor) svcs)))
        (β! (local-services-beh new-svcs encryptor decryptor))
        (>> cust id)))
     
@@ -161,7 +161,7 @@
      (>> self cust :add-service-with-id (uuid:make-v1-uuid) actor))
     
     ((cust :add-single-use-service id actor)
-     (let ((new-svcs (acons id (ephem-service actor nil) svcs)))
+     (let ((new-svcs (acons id (ephem-service actor) svcs)))
        (β! (local-services-beh new-svcs encryptor decryptor))
        (send-after *default-ephemeral-ttl* self sink :remove-service id)
        (>> cust id)))
@@ -169,7 +169,7 @@
     ;; --------------------------------------------
     
     ((cust :add-ephemeral-client-with-id id actor ttl)
-     (let ((new-svcs (acons id (ephem-service actor self-task ttl) svcs)))
+     (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
        (β! (local-services-beh new-svcs encryptor decryptor))
        (>> cust id)
        (when ttl
@@ -228,8 +228,7 @@
      (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
        (when pair
          (let ((svc (cdr pair)))
-           (with-logical-task (local-service-task svc)
-             (>>* (local-service-handler svc) msg))
+           (>>* (local-service-handler svc) msg)
            (when (ephem-service-p svc)
              (cond ((ephem-service-ttl svc)
                     ;; possibly counterintuitive... if we have traffic on this
