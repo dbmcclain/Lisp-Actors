@@ -278,7 +278,7 @@ THE SOFTWARE.
              (SEND-EVENT (msg)
                `(mpc:mailbox-send *central-mail* ,msg)))
     
-    (let (sends pend-beh dispatch)
+    (let (sends pend-beh)
       (labels
           ((%send (msg)
              ;; Within one Actor invocation there can be no significance
@@ -315,6 +315,20 @@ THE SOFTWARE.
                    (SEND-EVENT msg)))
                t))
 
+           (cf-dispatch ()
+             (let ((pend-exits  nil))
+               (flet ((%at-exit (fn)
+                        (push fn pend-exits)))
+                 (declare (dynamic-extent #'%at-exit))
+                 (unwind-protect
+                     (let ((*at-exit-hook* #'%at-exit))
+                       (normal-dispatch (contention-free-behavior-fn pend-beh)))
+                   (when pend-exits
+                     (dolist (fn (the list pend-exits))
+                       (funcall fn)))
+                   ))
+               ))
+
            (discriminated-dispatch ()
              ;; Allow specialized behaviors to set up dynamic control flow
              ;; scaffolding (aka UNWIND-PROTECT) surrounding a normal dispatch.
@@ -323,18 +337,7 @@ THE SOFTWARE.
                (normal-dispatch pend-beh))
               
               ((contention-free-behavior-p pend-beh)
-               (let ((pend-exits  nil))
-                 (flet ((%at-exit (fn)
-                          (push fn pend-exits)))
-                   (declare (dynamic-extent #'%at-exit))
-                   (unwind-protect
-                       (let ((*at-exit-hook* #'%at-exit))
-                         (normal-dispatch (contention-free-behavior-fn pend-beh)))
-                     (when pend-exits
-                       (dolist (fn (the list pend-exits))
-                         (funcall fn)))
-                     ))
-                 ))
+               (cf-dispatch))
               
               (t)     ;; was junk - just return T so we don't retry
               ))
@@ -365,16 +368,16 @@ THE SOFTWARE.
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))
                          sends      nil)
-                   (unless (funcall dispatch)
+                   (unless (discriminated-dispatch)
                      (go RETRY))
                    ))))
              ))
         (declare (dynamic-extent #'%send #'%become #'%abort-beh
+                                 #'discriminated-dispatch
                                  #'normal-dispatch
+                                 #'cf-dispatch
                                  #'dispatch-loop))
         
-        (setf dispatch (um:rcurry #'discriminated-dispatch #'normal-dispatch))
-
         ;; --------------------------------------------
         
         (let ((*send-hook*      #'%send)

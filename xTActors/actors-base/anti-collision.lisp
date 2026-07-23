@@ -99,7 +99,7 @@
              (go-around ()
                (%send-to-pool (msg self self-msg))
                (abort))
-             (try-release (&rest ignored)
+             (try-release ()
                (declare (ignore ignored))
                (mpc:compare-and-swap owner me nil)))
         (declare (dynamic-extent #'try-acquire #'go-around))
