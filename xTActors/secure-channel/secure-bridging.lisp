@@ -277,8 +277,7 @@
          (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
            (when pair
              (let ((svc (cdr pair)))
-               (with-logical-task (local-service-task svc)
-                 (>>* (local-service-handler svc) rand-pt (cdr info)))
+               (>>* (local-service-handler svc) rand-pt (cdr info))
                ))))
        ))
     
@@ -292,8 +291,7 @@
          (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
            (when pair
              (let ((svc (cdr pair)))
-               (with-logical-task (local-service-task svc)
-                 (>>* (local-service-handler svc) rkey (cdr info)))
+               (>>* (local-service-handler svc) rkey (cdr info))
                ))))
        ))
     ))

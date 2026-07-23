@@ -1,4 +1,4 @@
-;; secure-connection.lisp -- communication between client and server
+7;; secure-connection.lisp -- communication between client and server
 ;; via secure channel
 ;;
 
@@ -418,7 +418,7 @@
 (defun tst (host)
   (let ((reval (remote-service :eval host)))
     (β (ans)
-        (>> reval β '(list (um:zulu-date-string) (machine-instance)))
+        (>> (checked-service (timed-service reval 3)) β '(list (um:zulu-date-string) (machine-instance)))
       #|
         (>> reval β '(um:capture-ans-or-exn
                             (error "test-error")))
