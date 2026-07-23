@@ -383,6 +383,10 @@ customer, just one time."
     (send-after timeout tag timer-tag)
     gate))
 
+(defmacro with-logical-task (task &body body)
+  `(let ((*self-task* ,task))
+     ,@body))
+
 (defun coordinator (cust tag task)
   ;; A COORDINATOR is used inside a TIMED-SERVICE to facilitate a
   ;; shutdown of the service on timeout.
@@ -394,10 +398,10 @@ customer, just one time."
   (create
    (alambda
     ((atag . ans) / (eq atag tag)
-     (let ((*coordinating* t)
-           (*self-task*    task))
-       (send* cust ans)
-       (become sink)))
+     (let ((*coordinating* t))
+       (with-logical-task task
+         (send* cust ans)
+         (become sink))))
     ((svc . msg)
      (let ((*coordinating* t))
        (send* svc msg)))
@@ -411,9 +415,9 @@ customer, just one time."
   ;; down the logical task, if it needs to.
   (actors ((coord-tag  (tag coord))
            (coord      (coordinator cust coord-tag self-task)))
-    (let ((*self-task*    coord)
-          (*coordinating* t))
-      (funcall fn coord-tag))
+    (let ((*coordinating* t))
+      (with-logical-task coord
+        (funcall fn coord-tag)))
     coord-tag))
           
 (defmacro with-new-task ((tagname cust) &body body)

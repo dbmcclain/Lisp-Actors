@@ -381,6 +381,7 @@ THE SOFTWARE.
    #:checked-service
    #:with-new-task
    #:self-task
+   #:with-logical-task
    ))
 
 #+(OR :ALLEGRO :CCL)
