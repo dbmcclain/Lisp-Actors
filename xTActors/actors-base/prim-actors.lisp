@@ -773,7 +773,7 @@ Example
      (β ans
          (send* (timed-service svc timeout) β msg)
        (send unw)
-       (send* (error-reply-checker cust) ans)
+       (send* cust ans)
        ))
    ))
 
