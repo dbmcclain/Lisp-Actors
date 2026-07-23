@@ -377,12 +377,14 @@ customer, just one time."
 
 (defun timed-gate (cust &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (actors ((tag       (tag gate))  ;; TAGs are unique and self-identifying
-           (timer-tag (tag gate))
-           (gate      (create
-                       (renewable-timed-gate-beh cust tag timer-tag))))
-    (send-after timeout tag timer-tag)
-    gate))
+  (let ((ccust  (cancellable cust)))
+    (actors ((tag       (tag gate))  ;; TAGs are unique and self-identifying
+             (timer-tag (tag gate))
+             (gate      (create
+                         (renewable-timed-gate-beh ccust tag timer-tag))))
+      (send-after timeout tag timer-tag)
+      (cancellable gate ccust))
+    ))
 
 (defun timed-service (svc &optional (timeout *timeout* timeout-present-p))
   ;; The clock only starts running when a message is sent to svc.
@@ -402,7 +404,7 @@ customer, just one time."
    (alambda
     ((ans . _) / (typep ans error-type)
      (error ans))
-
+    
     (msg
      (send* cust msg))
     )))
