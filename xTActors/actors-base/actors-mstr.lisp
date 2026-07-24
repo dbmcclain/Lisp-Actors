@@ -92,7 +92,7 @@ THE SOFTWARE.
 (defstruct (cancel-flag
             (:constructor %make-cancel-flag (link)))
   cancelled?
-  link)
+  (link nil :read-only t))
 
 (defun make-cancel-flag (&optional link)
   (%make-cancel-flag (cancel-flag link)))
@@ -100,8 +100,8 @@ THE SOFTWARE.
 (defstruct cust-can-pair
   ;; used to convey a customer actor and cancellation flag to a
   ;; service Actor
-  customer
-  cancel-flag)
+  (customer     nil :read-only t)
+  (cancel-flag  nil :read-only t))
 
 (defgeneric cancelled? (x)
   (:method (x)
@@ -206,6 +206,12 @@ THE SOFTWARE.
 ;; but allows Actor to exit normally. In contrast to ERROR action
 ;; which aborts all BECOME and SENDs and exits immediately. ABORT-BEH
 ;; allows subsequent SENDs and BECOME to still take effect.
+
+(defun become (new-beh)
+  (funcall *become-hook* (screened-beh new-beh)))
+
+(defun become-sink ()
+  (become nil))
 
 (defun abort-beh ()
   (funcall *abort-beh-hook*))

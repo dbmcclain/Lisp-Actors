@@ -110,18 +110,11 @@
              (contention-free-behavior-p beh))
          )))
 
+(deflex sink nil)
+
 (defun is-sink? (ac)
   ;; used by networking code to avoid sending useless data
   (not (viable-actor? ac)))
 
 ;; ---------------------------------------
-
-(defun become (new-beh)
-  (declare (special *become-hook*))
-  (funcall *become-hook* (screened-beh new-beh)))
-
-(deflex sink nil)
-
-(defun become-sink ()
-  (become nil))
 
