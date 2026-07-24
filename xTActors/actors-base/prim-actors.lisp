@@ -348,42 +348,17 @@ customer, just one time."
     (unless (realp timeout)
       (warn 'no-timeout))))
 
-(defun renewable-timed-gate-beh (cust tag timer-tag)
-  (alambda
-   ((acust :renew-timeout &optional (timeout nil timeout-present-p))
-    ;; NOTE: We do not reference *TIMEOUT* here. Can you understand why not?
-    (check-timeout timeout timeout-present-p)
-    (let ((new-tag  (tag self)))
-      (become (renewable-timed-gate-beh cust new-tag timer-tag))
-      (send-after timeout new-tag timer-tag)
-      (send* acust :ok)))
-   
-   ((atag _) / (eq atag tag)
-    ;; The current timeout timer is the only thing that knows TAG.
-    (cancel cust)
-    (send cust +timed-out+)
-    (become-sink))
-
-   ((_ atag) / (eq atag timer-tag)
-    ;; Older timeout timers are the only things that know TIMER-TAG.
-    ;; So we filter away these messages to avoid triggering the ONCE'ness.
-    )
-
-   (msg
-    ;; for results sent directly to this gate
-    (send* cust msg)
-    (become-sink))
-   ))
-
 (defun timed-gate (cust &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (let ((ccust  (ensure-cancellable cust)))
-    (actors ((tag       (tag gate))  ;; TAGs are unique and self-identifying
-             (timer-tag (tag gate))
-             (gate      (create
-                         (renewable-timed-gate-beh ccust tag timer-tag))))
-      (send-after timeout tag timer-tag)
-      (ensure-cancellable gate ccust))
+  (let* ((cf    (make-cancel-flag))
+         (gate  (create
+                 (lambda* ans
+                   (cancel cf)
+                   (send* cust ans)
+                   (become-sink))
+                 )))
+    (send-after timeout gate +timed-out+)
+    (ensure-cancellable gate cf)
     ))
 
 (defun timed-service (svc &optional (timeout *timeout* timeout-present-p))
