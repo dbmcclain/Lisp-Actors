@@ -319,7 +319,7 @@ customer, just one time."
 ;; Timed Services with Cancellation on Timeout
 
 (defun once-with-cancel (cust)
-  (let* ((cf   (make-cancel-flag))
+  (let* ((cf   (make-cancel-flag cust))
          (gate (create
                 (lambda* ans
                   (cancel cf)
@@ -413,7 +413,7 @@ customer, just one time."
   ;; message
   (create
    (behav (cust &rest msg)
-     (let* ((cf   (make-cancel-flag))
+     (let* ((cf   (make-cancel-flag cust))
             (gate (create
                    (lambda* ans
                      (send* cust ans)

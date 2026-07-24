@@ -89,8 +89,13 @@ THE SOFTWARE.
 ;; Actor into a pair with a fresh cancel flag, or just leaves an
 ;; existing customer/flag pair alone.
 
-(defstruct cancel-flag
-  cancelled?)
+(defstruct (cancel-flag
+            (:constructor %make-cancel-flag (link)))
+  cancelled?
+  link)
+
+(defun make-cancel-flag (&optional link)
+  (%make-cancel-flag (cancel-flag link)))
 
 (defstruct cust-can-pair
   ;; used to convey a customer actor and cancellation flag to a
@@ -102,7 +107,8 @@ THE SOFTWARE.
   (:method (x)
    nil)
   (:method ((x cancel-flag))
-   (cancel-flag-cancelled? x))
+   (or (cancel-flag-cancelled? x)
+       (cancelled? (cancel-flag-link x))))
   (:method ((x cust-can-pair))
    (cancelled? (cust-can-pair-cancel-flag x))))
 
@@ -133,7 +139,7 @@ THE SOFTWARE.
   (:method ((cust cust-can-pair) &optional (inherit-from nil inherit-from-present-p))
    (if inherit-from-present-p  ;; explicit override?
        (make-cust-can-pair
-        :customer (cust-can-pair-customer cust)
+        :customer    (cust-can-pair-customer cust)
         :cancel-flag (or (cancel-flag inherit-from)
                          (make-cancel-flag)))
      ;; else
