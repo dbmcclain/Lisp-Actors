@@ -296,41 +296,8 @@ customer, just one time."
     ))
 
 ;; --------------------------------------------
-;; Updatable Timeouts...
+;; Timeouts...
 ;;
-;; We often have no idea how much time to allow a process. But we need
-;; a timeout to avoid indefinite delay if things might go wrong.
-;;
-;; So we set up for a renewable timeout mechanism. A ONCE gate is
-;; normally passsed along as the customer to send results to. It sets
-;; up a race between either a timeout error or a generated result back
-;; to the original customer.
-;;
-;; But a renewable gate also allows you to cancel/renew the timeout to
-;; an improved estimate as you pass milestones in the logical task.
-;;
-;; You do this by sending the message :RENEW-TIMEOUT to your customer,
-;; which is the gate.
-;;
-;; In the event that your customer is not a RENEWABLE-TIMED-GATE, then
-;; the message will most likely be ignored.
-;;
-;; NOTE: Do not mistake a LOGICAL TASK for a MACHINE THREAD. They are
-;; completely orthogonal to each other. One logical task may span the
-;; execution of any number of machine threads, back and forth between
-;; several of them, or not. Whichever thread runs a portion of a
-;; logical task is of no consequence.
-;;
-;; And any one machine thread, running a Dispatcher, can execute
-;; portions of any number of different logical tasks.
-;;
-;; Machine Threads have dynamic context surrounding function
-;; execution. The context grows and shrinks with the use of Lisp
-;; control structures. Threads have dynamic binding for special vars.
-;;
-;; Logical Tasks have no notion of dynamic context. No dynamic binding
-;; of context between Actors. Each portion of a logical task (an
-;; Actor) exists as an island function with dynamic depth 1.
 
 (define-condition no-timeout (warning)
   ()
@@ -348,18 +315,24 @@ customer, just one time."
     (unless (realp timeout)
       (warn 'no-timeout))))
 
+;; --------------------------------------------
+;; Timed Services with Cancellation on Timeout
+
+(defun once-with-cancel (cust)
+  (let* ((cf   (make-cancel-flag))
+         (gate (create
+                (lambda* ans
+                  (cancel cf)
+                  (send* cust ans)
+                  (become-sink)))
+               ))
+    (ensure-cancellable gate cf)))
+
 (defun timed-gate (cust &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (let* ((cf    (make-cancel-flag))
-         (gate  (create
-                 (lambda* ans
-                   (cancel cf)
-                   (send* cust ans)
-                   (become-sink))
-                 )))
+  (let ((gate (once-with-cancel cust)))
     (send-after timeout gate +timed-out+)
-    (ensure-cancellable gate cf)
-    ))
+    gate))
 
 (defun timed-service (svc &optional (timeout *timeout* timeout-present-p))
   ;; The clock only starts running when a message is sent to svc.
@@ -461,17 +434,6 @@ customer, just one time."
       (cancel cf)
       (become-sink)))
    ))
-
-(defun once-with-cancel (cust)
-  (let* ((cf   (make-cancel-flag))
-         (gate (create
-                (lambda* ans
-                  (cancel cf)
-                  (send* cust ans)
-                  (become-sink)))
-               ))
-    (ensure-cancellable gate cf)))
-
 
 (defmacro one-of (&rest msgs)
   ;; Getting an answer from whichever send generates a response first.
