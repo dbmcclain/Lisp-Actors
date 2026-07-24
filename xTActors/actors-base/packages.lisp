@@ -382,6 +382,7 @@ THE SOFTWARE.
    #:cancelled?
    #:cancel
    #:cancel-flag
+   #:make-cancel-flag
    #:ensure-cancellable
    ))
 
