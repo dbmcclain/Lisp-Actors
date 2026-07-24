@@ -104,6 +104,14 @@ THE SOFTWARE.
    ;; either cust already is cancellable, as a cust-can-pair,
    ;; or else we aren't even a send target.
    cust)
+  (:method ((cust cust-can-pair) &optional (inherit-from nil inherit-from-present-p))
+   (if inherit-from-present-p
+       (make-cust-can-pair
+        :customer (cust-can-pair-customer cust)
+        :cancel-flag (or (cancel-flag inherit-from)
+                         (make-cancel-flag)))
+     ;; else
+     cust))
   (:method ((cust actor) &optional inherit-from)
    (make-cust-can-pair
     :customer    cust
