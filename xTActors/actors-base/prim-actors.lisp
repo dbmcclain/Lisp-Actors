@@ -440,11 +440,17 @@ customer, just one time."
   ;; message
   (create
    (behav (cust &rest msg)
-     (let ((gate (once cust)))
-       (apply #'send-to-all actors gate msg)))
+     (let* ((cf   (make-cancel-flag))
+            (gate (create
+                   (lambda* ans
+                     (send* cust ans)
+                     (cancel cf)
+                     (become-sink))
+                   )))
+       (apply #'send-to-all actors (ensure-cancellable gate cf) msg)))
    ))
 
-(defun running-one-of-beh (&rest active)
+(defun running-one-of-beh (cf &rest active)
   ;; Sends result from successful channel and :NOK to all other
   ;; waiting customers.
   (alambda
@@ -452,8 +458,20 @@ customer, just one time."
     (let* ((pair (assoc atag active))
            (cust (cdr pair)))
       (send* cust ans)
+      (cancel cf)
       (become-sink)))
    ))
+
+(defun once-with-cancel (cust)
+  (let* ((cf   (make-cancel-flag))
+         (gate (create
+                (lambda* ans
+                  (cancel cf)
+                  (send* cust ans)
+                  (become-sink)))
+               ))
+    (ensure-cancellable gate cf)))
+
 
 (defmacro one-of (&rest msgs)
   ;; Getting an answer from whichever send generates a response first.
@@ -465,22 +483,23 @@ customer, just one time."
   ;; are left dangling. If that isn't what you want, then see
   ;; ALT-WITH-NAK below.
   ;;
-  (um:with-unique-names (gate)
+  (um:with-unique-names (cf gate)
     (let* ((custs (mapcar #'third msgs))
            (cust  (car custs)))
       (if (every (um:curry #'equalp cust) custs)
-          `(let ((,gate  (once ,cust)))
+          `(let ((,gate  (once-with-cancel ,cust)))
              ,@(mapcar #`(,@(um:take 2 a1) ,gate ,@(um:drop 3 a1)) msgs))
         ;; else
         (let ((tags  (mapcar (lambda (x)
                                (declare (ignore x))
                                (gensym (string :tag)))
                              msgs)))
-          `(actors (,@(mapcar #`(,a1 (tag ,gate)) tags)
-                    (,gate  (create
-                             (running-one-of-beh ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
-                             )))
-             ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags))
+          `(let ((,cf  (make-cancel-flag)))
+             (actors (,@(mapcar #`(,a1 (tag  ,gate)) tags)
+                      (,gate  (create
+                               (running-one-of-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
+                               )))
+               ,@(mapcar #2`(,@(um:take 2 a1) (ensure-cancellable ,a2 ,cf) ,@(um:drop 3 a1)) msgs tags)))
           ))
       )))
 #|
@@ -490,17 +509,18 @@ Example:
  (send chan2 cust :mess13)
  ...)
 =>
-(LET ((#:GATE14654 (ONCE CUST)))
+(LET ((#:GATE14654 (ONCE-WITH-CANCEL CUST)))
   (SEND CHAN1 #:GATE14654 :MESS1)
   (SEND CHAN2 #:GATE14654 :MESS13)
   ...)
 |#
 
-(defun running-alt-beh (&rest active)
+(defun running-alt-beh (cf &rest active)
   ;; Sends result from successful channel and :NOK to all other
   ;; waiting customers.
   (alambda
    ((atag . ans)
+    (cancel cf)
     (let* ((pair (assoc atag active))
            (cust (cdr pair)))
       (send* cust ans)
@@ -515,17 +535,18 @@ Example:
 (defmacro alt-with-nak (&rest msgs)
   ;; Allow only the first responder, pass along its response to its customer,
   ;; and pass along :NOK to all other customers in this race.
-  (um:with-unique-names (gate)
+  (um:with-unique-names (cf gate)
     (let ((custs (mapcar #'third msgs))
           (tags  (mapcar (lambda (x)
                            (declare (ignore x))
                            (gensym (string :tag)))
                          msgs)))
-      `(actors (,@(mapcar #`(,a1 (tag ,gate)) tags)
-                (,gate  (create
-                         (running-alt-beh ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
-                         )))
-         ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags))
+      `(let ((,cf  (make-cancel-flag)))
+         (actors (,@(mapcar #`(,a1 (tag ,gate)) tags)
+                  (,gate  (create
+                           (running-alt-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
+                           )))
+           ,@(mapcar #2`(,@(um:take 2 a1) (ensure-cancellable ,a2 ,cf) ,@(um:drop 3 a1)) msgs tags)))
       )))
 #|
 Example
@@ -534,15 +555,16 @@ Example
  (send chan2 cust2 :mess13)
  ...)
 =>
-(ACTORS ((#:TAG14722 (TAG #:GATE14721))
-         (#:TAG14723 (TAG #:GATE14721))
-         ...
-         (#:GATE14721
-          (CREATE (RUNNING-ALT-BEH (LIST (CONS #:TAG14722 CUST1)
-                                         (CONS #:TAG14723 CUST2))))))
-  (SEND CHAN1 #:TAG14722 :MESS1)
-  (SEND CHAN2 #:TAG14723 :MESS13)
-  ...)
+(LET ((#:CF  (MAKE-CANCEL-FLAG)))
+  (ACTORS ((#:TAG14722 (TAG #:GATE14721))
+           (#:TAG14723 (TAG #:GATE14721))
+           ...
+           (#:GATE14721
+            (CREATE (RUNNING-ALT-BEH #:CF (LIST (CONS #:TAG14722 CUST1)
+                                                (CONS #:TAG14723 CUST2))))))
+    (SEND CHAN1 (ENSURE-CANCELLABLE #:TAG14722 #:CF) :MESS1)
+    (SEND CHAN2 (ENSURE-CANCELLABLE #:TAG14723 #:CF) :MESS13)
+    ...))
 |#
 
 ;; --------------------------------------------
