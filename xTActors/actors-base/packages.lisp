@@ -80,9 +80,6 @@ THE SOFTWARE.
    #:echo-service
    #:fork
    #:par-map
-   ;; #:simd
-   ;; #:mimd
-   #:actor-nlet
    #:is-sink?
    #:deflex
    #:deflex*
@@ -99,8 +96,6 @@ THE SOFTWARE.
 
    #:β
    #:beta
-   #:beta-beh
-   #:beta-gen
    #:alambda
    #:def-beh
    
@@ -146,10 +141,6 @@ THE SOFTWARE.
    #:start-tcp-server
    #:terminate-server
 
-   ;; #:future
-   ;; #:lazy-future
-   ;; #:future-become
-   ;; #:lazy-future-become
    #:sink
    #:become-sink
    #:const
@@ -176,12 +167,7 @@ THE SOFTWARE.
    #:fwd
    #:label
    #:tag
-   #:once-tag
-   ;; #:timed-tag
-   ;; #:timed-once-tag
-   ;; #:timed-once-tag-with-ka
    #:rate-limited-gate
-   ;; #:ser
    #:par
 
    #:serializer
@@ -194,10 +180,7 @@ THE SOFTWARE.
    #:map-reduce
    #:err-from
    #:timing
-   ;; #:sequenced-delivery
-   #:mbox-sender
-   #:time-tag
-   
+
    #:format-usec
    #:logger-timestamp
    
@@ -208,11 +191,6 @@ THE SOFTWARE.
    #:subscribe
    #:notify
    #:unsubscribe
-
-   #:watch
-   #:unwatch
-
-   #:suspend
 
    #:marshal-encoder
    #:marshal-decoder
@@ -350,14 +328,6 @@ THE SOFTWARE.
 
    #:with
    #:dictionary-bind
-   #|
-   #:actor-state
-   #:state-with
-   #:state-without
-   #:state-val
-   #:with-state-vals
-   #:with-actor-state
-   |#
    
    #:counter-beh
    #:counter

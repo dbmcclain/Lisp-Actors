@@ -233,16 +233,6 @@ prefixed by our unique SELF identity"
      (send* cust self msg))
    ))
 
-(defun once-tag (cust)
-  (let* ((cf  (make-cancel-flag cust))
-         (tag (create
-               (behav msg
-                 (send* cust self msg)
-                 (cancel cf)
-                 (become-sink)))
-              ))
-    (make-cancellable tag cf)))
-  
 ;; ---------------------
 
 (defun serializer (svc)

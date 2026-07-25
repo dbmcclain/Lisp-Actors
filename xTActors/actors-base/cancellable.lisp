@@ -25,12 +25,9 @@
 ;; the pair, or on the flag itself.
 ;;
 ;; A cancel flag can be propagated to other Actors by calling
-;; ENSURE-CANCELLABLE on an Actor, with a customer pair, or a cancel
+;; MAKE-CANCELLABLE on an Actor, with a customer pair, or a cancel
 ;; flag, as the second argument.
 ;;
-;; Calling ENSURE-CANCELLABLE without a second argument converts an
-;; Actor into a pair with a fresh cancel flag, or just leaves an
-;; existing customer/flag pair alone.
 
 (defstruct (cancel-flag
             (:constructor %make-cancel-flag (link)))
