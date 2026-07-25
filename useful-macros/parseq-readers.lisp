@@ -366,14 +366,56 @@
                            sole-real))
 
 ;; --------------------------------------------
+;; Parseq appears to be not thread-safe...
+
+(defvar *parseq-lock*  (mpc:make-lock))
+
+#+:LISPWORKS
+(lw:defadvice (parseq make-thread-safe :around)
+    (rule sequence &rest args)
+  (mpc:with-lock (*parseq-lock*)
+    (apply #'lw:call-next-advice rule sequence args)))
+
+#+:SBCL
+(progn
+  (defun safe-parseq (next-fn rule sequence &rest args)
+    (mpc:with-lock (*parseq-lock*)
+      (apply next-fn rule sequence args)))
+  (cl-advice:make-advisable 'parseq
+                            :arguments '(rule sequence &rest args)
+                            :force-use-arguments t)
+  (cl-advice:add-advice :around 'parseq #'safe-parseq))
+
+;; --------------------------------------------
 
 (defun read-extended-number (s)
   (um:with-vanilla-readtable  ;; for testing in-situ
     (progn ;; ignore-errors
-      (parseq 'pr-number s :junk-allowed t))))
-
+      (parseq 'pr-number s :junk-allowed t))
+    ))
+  
 ;; --------------------------------------------
-#|                               
+#|
+(defun tst (&optional (n 100_000))
+  (handler-bind
+      ((error (lambda (c)
+                (inspect c)
+                )))
+    (dotimes (ix n)
+      (progn ;; um:with-vanilla-readtable
+        (read-from-string (princ-to-string (random 1.0)))))
+    ))
+
+(defun tst (&optional (n 100_000))
+  (handler-bind
+      ((error (lambda (c)
+                (inspect c)
+                )))
+    (dotimes (ix n)
+      (read-extended-number (princ-to-string (random 1.0))))
+    ))
+(tst)
+
 (parseq 'pr-number "+1°22′34″.33")
 (parseq 'pr-number "1.23e40")
 (parseq 'digits "1_234_56")
@@ -417,6 +459,7 @@
 (time
  (dotimes (ix 100_000)
    (read-extended-number "2026/10/12T12:23:32.3U-7")))
+(read-extended-number "314.08836360189")
 
 ;; --------------------------------------------
 |#
