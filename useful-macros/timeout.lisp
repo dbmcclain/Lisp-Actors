@@ -12,7 +12,7 @@
 
 (defun report-timeout-error (err stream)
   (declare (ignore err))
-  (format stream "Timeout"))
+  (format stream "*** Timeout Error ***"))
 
 (defmacro with-timeout (dt &rest body)
   `(let ((*timeout*  ,dt))
