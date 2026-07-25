@@ -49,15 +49,16 @@
 (defgeneric make-cancellable (cust cf)
   ;; Make a cust Actor cancellable if cf is.
   ;; If cust is already cancellable, no change.
-  (:method ((cust actor) (cf cancel-flag))
-   (make-cust-can-pair
-    :customer    cust
-    :cancel-flag cf))
-  (:method ((cust actor) (cf cust-can-pair))
-   (make-cust-can-pair
-    :customer cust
-    :cancel-flag (cust-can-pair-cancel-flag cf)))
+  (:method ((cust actor) cf)
+   (let ((flag (cancel-flag cf)))
+     ;; can inherit from a cancel flag or another cancellable
+     (if flag
+         (make-cust-can-pair
+          :customer    cust
+          :cancel-flag flag)
+       cust)))
   (:method (cust cf)
+   (declare (ignore cf))
    cust))
 
 (defgeneric cancelled? (x)
