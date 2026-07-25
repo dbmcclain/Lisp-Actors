@@ -1123,6 +1123,7 @@ THE SOFTWARE.
                 (,ansfn ()
                   (cdr ,hd)))
          (declare (dynamic-extent #',accfn #',dotfn #',ansfn))
+         (declare (inline ,accfn ,ansfn))
          ,@body))
     ))
 
@@ -1132,6 +1133,11 @@ THE SOFTWARE.
              ,@body
              (,ansfn))
     ))
+
+#+:LISPWORKS
+(progn
+  (editor:setup-indent "accum" 1)
+  (editor:setup-indent "accums" 1))
 
 #||#
 ;; -----------------------------------------------
