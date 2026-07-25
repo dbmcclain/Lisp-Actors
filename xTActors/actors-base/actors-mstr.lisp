@@ -64,14 +64,33 @@ THE SOFTWARE.
 
 ;; --------------------------------------------
 
-(defun send-to-pool (target &rest msg)
+(aop:defdynfun send-to-pool (target &rest msg)
+  (apply #'initial-send-to-pool target msg))
+
+(defun normal-send-to-pool (target &rest msg)
   ;; the default SEND for foreign (non-Actor) threads
   (cond
    ((viable-actor? target)
-    (%send-to-pool (msg target msg)))
+    (mpc:mailbox-send *central-mail* (msg target msg)))
    ((cust-can-pair-p target)
     (apply #'send-to-pool (cust-can-pair-customer target) msg))
    ))
+
+(defun initial-send-to-pool (target &rest msg)
+  (unless *central-mail*
+    (mpc:with-lock (*central-mail-lock*)
+      (unless *central-mail*
+        (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail"))
+        (aop:rebind send-to-pool #'normal-send-to-pool)
+        (restart-actors-system *nbr-pool*)
+        )))
+  (apply #'normal-send-to-pool target msg))
+
+(defun reset-send-to-pool ()
+  (mpc:with-lock (*central-mail-lock*)
+    (setf *central-mail*  nil)
+    (aop:rebind send-to-pool #'initial-send-to-pool)
+    ))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME

@@ -17,31 +17,6 @@
 (mpc:defglobal *actors-grace-period*  5f0)  ;; period before forced shutdown termination
 
 ;; --------------------------------------------
-;; Self-init on first SEND
-
-(aop:defdynfun %send-to-pool (msg)
-  (%initial-send-to-pool msg))
-
-(defun %ss-send-to-pool (msg)
-  (mpc:mailbox-send *central-mail* msg))
-  
-(defun %initial-send-to-pool (msg)
-  (unless *central-mail*
-    (mpc:with-lock (*central-mail-lock*)
-      (unless *central-mail*
-        (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail"))
-        (aop:rebind %send-to-pool #'%ss-send-to-pool)
-        (restart-actors-system *nbr-pool*)
-        )))
-  (%ss-send-to-pool msg))
-
-(defun reset-send-to-pool ()
-  (mpc:with-lock (*central-mail-lock*)
-    (setf *central-mail*  nil)
-    (aop:rebind %send-to-pool #'%initial-send-to-pool)
-    ))
-
-;; --------------------------------------------
 ;; Per-Thread for Activated Actors
 ;;
 ;; May become dynamically rebound during execution. Different for

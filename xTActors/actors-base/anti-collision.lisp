@@ -66,7 +66,7 @@
         (flet ((try-acquire ()
                  (mpc:compare-and-swap owner nil me))
                (go-around ()
-                 (%send-to-pool (msg self self-msg))
+                 (apply #'send-to-pool self self-msg)
                  (abort))
                (try-release ()
                  (declare (ignore ignored))

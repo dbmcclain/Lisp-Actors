@@ -243,8 +243,8 @@
     ))
 
 ;; --------------------------------------------
-;; The following are made into generic functions to support later
-;; extensions involving the async socket system.
+;; NOTE: The following are made into generic functions to support
+;; later extensions involving the async socket system.
 
 (defgeneric restart-actors-system (&optional nbr-execs)
   (:method (&optional (nbr-execs *nbr-pool*))
@@ -308,7 +308,7 @@
 (mpc:atomic-exchange *central-mail* nil)
 (print *central-mail*)
 (inspect *central-mail*)
-(inspect '%send-to-pool)
+(inspect 'send-to-pool)
 (ask custodian :get-dispatchers)
 (get-dispatch-threads)
 (setf custodian (create (custodian-beh (ask custodian :get-dispatchers))))
