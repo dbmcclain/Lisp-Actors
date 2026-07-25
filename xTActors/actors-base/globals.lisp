@@ -19,7 +19,7 @@
 ;; --------------------------------------------
 ;; Self-init on first SEND
 
-(defun %send-to-pool (msg)
+(aop:defdynfun %send-to-pool (msg)
   (%initial-send-to-pool msg))
 
 (defun %ss-send-to-pool (msg)
@@ -29,16 +29,17 @@
   (unless *central-mail*
     (mpc:with-lock (*central-mail-lock*)
       (unless *central-mail*
-        (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
-             (symbol-function '%send-to-pool) (symbol-function '%ss-send-to-pool))
+        (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail"))
+        (aop:rebind %send-to-pool #'%ss-send-to-pool)
         (restart-actors-system *nbr-pool*)
         )))
   (%ss-send-to-pool msg))
 
 (defun reset-send-to-pool ()
   (mpc:with-lock (*central-mail-lock*)
-    (setf *central-mail*  nil
-          (symbol-function '%send-to-pool) (symbol-function '%initial-send-to-pool))))
+    (setf *central-mail*  nil)
+    (aop:rebind %send-to-pool #'%initial-send-to-pool)
+    ))
 
 ;; --------------------------------------------
 ;; Per-Thread for Activated Actors
