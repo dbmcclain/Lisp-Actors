@@ -300,7 +300,7 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "with-next-event" 1)
 
-(defun actor-dispatch-loop (&optional timeout done-ptr)
+(defun actor-dispatch-loop (timeout done-ptr)
   #F
   (macrolet ((REPEAT (&body body)
                `(um:until (um:pointer-* done-ptr)
@@ -421,6 +421,7 @@ THE SOFTWARE.
     ))
 
 (defun run-actor-dispatch-loop (done-ptr)
+  ;; Called at system startup for Dispatch pool threads
   (with-simple-restart (abort "Terminate Actor thread")
     (actor-dispatch-loop nil done-ptr)))
 
