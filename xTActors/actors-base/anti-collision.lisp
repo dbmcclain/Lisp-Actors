@@ -32,18 +32,17 @@
 ;;
 ;; But it is really okay for non-mutating actions to occur
 ;; simultaneously with mutating actions, *PROVIDED* that the code is
-;; functionally pure. Using a Serializer would prevent many concurrent
-;; activities that could otherwise occur under
-;; WITH-COLLISION-FREE-SEMANTICS.
+;; kept functionally pure.
 ;;
 ;; So the purpose of WITH-COLLISION-FREE-SEMANTICS isn't to prevent
-;; concurrent actions. It simply seeks to reduce the wasted compute
-;; cycles resulting from mutating action contention, where only one
-;; thread will win the round, and the other threads will be
-;; automatically retried. Guarding the BECOME clauses with
-;; WITHOUT-CONTENTION allows us to forego the wasted compute cycles
-;; leading up to a failed BECOME, and force an early go-around for all
-;; the non-winning threads.
+;; parallel concurrent actions. It simply seeks to reduce the wasted
+;; compute cycles resulting from mutating action contention, where
+;; only one thread will win the round, and the other threads will be
+;; automatically retried.
+;;
+;; Guarding the BECOME clauses with WITHOUT-CONTENTION allows us to
+;; forego the wasted compute cycles leading up to a failed BECOME, and
+;; force an early go-around for all the non-winning threads.
 ;;
 ;; DM/RAL 08/25
 ;; -----------------------------------------------------------
@@ -52,11 +51,44 @@
 
 ;; --------------------------------------------
 
-#|
-(defun bad-become (beh)
-  (declare (ignore ben))
-  (error "Unguarded BECOME in contention-free semantics"))
-|#
+(aop:defdynfun %do-without-contention (guard thunk)
+  (declare (cons guard)
+           (function thunk))
+  (aop:dflet
+      ((%do-without-contention (guard thunk)
+         (declare (ignore guard))
+         ;; allows for nested WITHOUT-CONTENTION
+         (funcall thunk))
+       (become (new-beh)
+         (og-become new-beh)))
+    (symbol-macrolet ((owner  (car (the cons guard))))
+      (let ((me (mpc:get-current-process)))
+        (flet ((try-acquire ()
+                 (mpc:compare-and-swap owner nil me))
+               (go-around ()
+                 (%send-to-pool (msg self self-msg))
+                 (abort))
+               (try-release ()
+                 (declare (ignore ignored))
+                 (mpc:compare-and-swap owner me nil)))
+          (declare (dynamic-extent #'try-acquire #'go-around))
+          ;;
+          ;; First thread to attempt WITHOUT-CONTENTION takes it,
+          ;; preemptively blocking all other threads from mutating the
+          ;; Actor. Other threads simply put their message back on the
+          ;; queue for later delivery.
+          ;;
+          ;; Non-mutating threads continue to execute in parallel
+          ;; concurrent manner. So it continues to be a good idea to
+          ;; keep the behavior code functionally pure.
+          ;;
+          (or (try-acquire)
+              (go-around))
+          (at-exit #'try-release)
+          (funcall thunk)
+          )))))
+
+;; --------------------------------------------
 
 (define-condition become-sans-without-contention (warning)
   ()
@@ -70,69 +102,15 @@
   ;; WITHOUT-CONTENTION, then we still let them try, but they have to go
   ;; through the same protection protocol as all the other clauses
   ;; using WITHOUT-CONTENTION.
-  (let ((*become-hook* (lambda (beh)
-                         (warn 'become-sans-without-contention)
-                         (%do-without-contention guard (lambda ()
-                                                         (become beh))))
-                       ))
+  (aop:dflet
+      ((become (beh)
+         (warn 'become-sans-without-contention)
+         (%do-without-contention guard (lambda ()
+                                         (become beh)))))
     (apply fn msg)
     ))
 
 ;; --------------------------------------------
-
-(defun do-at-exit (fn)
-  (funcall *at-exit-hook* fn))
-
-(defmacro at-exit (&body body)
-  `(do-at-exit (lambda () ,@body)))
-
-;; --------------------------------------------
-(defun %og-do-without-contention (guard thunk)
-  (declare (cons guard)
-           (function thunk))
-  (symbol-macrolet ((owner  (car (the cons guard))))
-    (let ((*become-hook* *ac-become-hook*)
-          (me  (mpc:get-current-process)))
-          
-      (flet ((try-acquire ()
-               (mpc:compare-and-swap owner nil me))
-             (go-around ()
-               (%send-to-pool (msg self self-msg))
-               (abort))
-             (try-release ()
-               (declare (ignore ignored))
-               (mpc:compare-and-swap owner me nil)))
-        (declare (dynamic-extent #'try-acquire #'go-around))
-        ;;
-        ;; First thread to attempt WITHOUT-CONTENTION takes it,
-        ;; preemptively blocking all other threads from mutating the
-        ;; Actor. Other threads simply put their message back on the
-        ;; queue for later delivery.
-        ;;
-        ;; Non-mutating threads continue to execute in parallel
-        ;; concurrent manner. So it continues to be a good idea to
-        ;; keep the behavior code functionally pure.
-        ;;
-        (or (try-acquire)
-            (go-around))
-        (at-exit
-         (try-release))
-        (funcall thunk)
-        ))))
-
-(defvar *do-without-contention-vector* #'%og-do-without-contention)
-
-(defun %bypassed-without-contention (guard thunk)
-  (declare (ignore guard))
-  (funcall thunk))
-
-(defun %do-without-contention (guard thunk)
-  ;; This indirection allows for nested WITHOUT-CONTENTION, all
-  ;; executing within one thread.
-  (let* ((fn *do-without-contention-vector*)
-         (*do-without-contention-vector* #'%bypassed-without-contention))
-    (funcall fn guard thunk)
-    ))
 
 (defmacro with-contention-free-semantics (beh-fn)
   ;; Should wrap a behavior function.

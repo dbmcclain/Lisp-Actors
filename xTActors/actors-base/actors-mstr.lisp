@@ -63,100 +63,15 @@ THE SOFTWARE.
   (list* self-msg-parent target args))
 
 ;; --------------------------------------------
-;; Cancellable Tasks...
-;;
-;; In order to propagate a cancel condition to Actors involved in some
-;; coordinated activity (a Logical Task), we allow the customer field
-;; of a message to contain a customer Actor/cancel-flag pair.
-;;
-;; Messages can be sent to the pair, meaning the Actor of the pair, as
-;; well as to ordinary Actors.
-;;
-;; Cancellation is indicated by the cancel flag, but what an Actor
-;; does with this information is strictly voluntary. No errors are
-;; thrown when the cancellation flag is checked with CANCELLED?. It
-;; merely returns a boolean result.
-;;
-;; In effect, you ask "if the customer of the Actor has been
-;; cancelled?" The cancel flag gets set by someone calling CANCEL on
-;; the pair, or on the flag itself.
-;;
-;; A cancel flag can be propagated to other Actors by calling
-;; ENSURE-CANCELLABLE on an Actor, with a customer pair, or a cancel
-;; flag, as the second argument.
-;;
-;; Calling ENSURE-CANCELLABLE without a second argument converts an
-;; Actor into a pair with a fresh cancel flag, or just leaves an
-;; existing customer/flag pair alone.
 
-(defstruct (cancel-flag
-            (:constructor %make-cancel-flag (link)))
-  cancelled?
-  (link nil :read-only t))
-
-(defun make-cancel-flag (&optional link)
-  (%make-cancel-flag (cancel-flag link)))
-
-(defstruct cust-can-pair
-  ;; used to convey a customer actor and cancellation flag to a
-  ;; service Actor
-  (customer     nil :read-only t)
-  (cancel-flag  nil :read-only t))
-
-(defgeneric make-cancellable (cust cf)
-  ;; Make a cust Actor cancellable if cf is.
-  ;; If cust is already cancellable, no change.
-  (:method ((cust actor) (cf cancel-flag))
-   (make-cust-can-pair
-    :customer    cust
-    :cancel-flag cf))
-  (:method ((cust actor) (cf cust-can-pair))
-   (make-cust-can-pair
-    :customer cust
-    :cancel-flag (cust-can-pair-cancel-flag cf)))
-  (:method (cust cf)
-   cust))
-
-(defgeneric cancelled? (x)
-  (:method (x)
-   nil)
-  (:method ((x cancel-flag))
-   (or (cancel-flag-cancelled? x)
-       (cancelled? (cancel-flag-link x))))
-  (:method ((x cust-can-pair))
-   (cancelled? (cust-can-pair-cancel-flag x))))
-
-(defgeneric cancel (x)
-  (:method (x)
-   ;; do nothing...
-   )
-  (:method ((x cancel-flag))
-   (setf (cancel-flag-cancelled? x) t))
-  (:method ((x cust-can-pair))
-   (cancel (cust-can-pair-cancel-flag x))))
-
-(defgeneric cancel-flag (x)
-  ;; Extract the cancel-flag from the argument.
-  (:method (x)
-   nil)
-  (:method ((x cancel-flag))
-   x)
-  (:method ((x cust-can-pair))
-   (cust-can-pair-cancel-flag x)))
-
-;; --------------------------------------------
-
-(defgeneric send-to-pool (target &rest msg)
-  (:method (target &rest msg)
-   (declare (ignore msg))
-   ;; just drop it on the floor
-   )
-  (:method ((target actor) &rest msg)
-   (when (viable-actor? target)
-     ;; the default SEND for foreign (non-Actor) threads
-     (%send-to-pool (msg target msg))))
-  (:method ((target cust-can-pair) &rest msg)
-   (apply #'send-to-pool (cust-can-pair-customer target) msg)))
+(defun send-to-pool (target &rest msg)
+  ;; the default SEND for foreign (non-Actor) threads
+  (cond
+   ((viable-actor? target)
+    (%send-to-pool (msg target msg)))
+   ((cust-can-pair-p target)
+    (apply #'send-to-pool (cust-can-pair-customer target) msg))
+   ))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -173,16 +88,8 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defgeneric send (target &rest msg)
-  (:method (target &rest msg)
-   (declare (ignore msg))
-   ;; just drop it on the floor
-   )
-  (:method ((target actor) &rest msg)
-   (when (viable-actor? target)
-     (funcall *send-hook* (msg target msg))))
-  (:method ((target cust-can-pair) &rest msg)
-   (send* (cust-can-pair-customer target) msg)))
+(aop:defdynfun send (target &rest msg)
+  (apply #'send-to-pool target msg))
 
 (defun send* (&rest args)
   ;; when last arg is a list that you want destructed
@@ -200,14 +107,23 @@ THE SOFTWARE.
 ;; which aborts all BECOME and SENDs and exits immediately. ABORT-BEH
 ;; allows subsequent SENDs and BECOME to still take effect.
 
-(defun become (new-beh)
-  (funcall *become-hook* (screened-beh new-beh)))
+(aop:defdynfun og-become (new-beh)
+  (declare (ignore new-beh))
+  (error "BECOME while not in an Actor"))
+
+(aop:defdynfun become (new-beh)
+  (og-become new-beh))
 
 (defun become-sink ()
   (become nil))
 
-(defun abort-beh ()
-  (funcall *abort-beh-hook*))
+(aop:defdynfun abort-beh ()
+  ;; do nothing
+  )
+
+(aop:defdynfun at-exit (fn)
+  (declare (ignore fn))
+  (error "AT-EXIT while not in Contention-Free Actor"))
 
 ;; -----------------------------------------------------------------
 ;; Generic RUN for all threads
@@ -362,6 +278,9 @@ THE SOFTWARE.
 |#
 ;; --------------------------------------------
 
+#+:LISPWORKS
+(editor:setup-indent "with-next-event" 1)
+
 (defun actor-dispatch-loop (&optional timeout done-ptr)
   #F
   (macrolet ((REPEAT (&body body)
@@ -375,19 +294,7 @@ THE SOFTWARE.
     
     (let (sends pend-beh)
       (labels
-          ((%send (msg)
-             ;; Within one Actor invocation there can be no significance
-             ;; to the ordering of sent messages.
-             (push msg sends))
-           
-           (%become (new-beh)
-             (setf pend-beh new-beh))
-           
-           (%abort-beh ()
-             (setf pend-beh *self-beh*
-                   sends    nil))
-
-           (normal-dispatch (fn)
+          ((normal-dispatch (fn)
              (declare (function fn))
              (let ((*self-beh* pend-beh))
                ;; ---------------------------------
@@ -409,21 +316,19 @@ THE SOFTWARE.
                  (dolist (msg (the list sends))
                    (SEND-EVENT msg)))
                t))
-
+           
            (cf-dispatch ()
              (let ((pend-exits  nil))
-               (flet ((%at-exit (fn)
-                        (push fn pend-exits)))
-                 (declare (dynamic-extent #'%at-exit))
+               (aop:dflet ((at-exit (fn)
+                             (push fn pend-exits)))
                  (unwind-protect
-                     (let ((*at-exit-hook* #'%at-exit))
-                       (normal-dispatch (contention-free-behavior-fn pend-beh)))
+                     (normal-dispatch (contention-free-behavior-fn pend-beh))
                    (when pend-exits
                      (dolist (fn (the list pend-exits))
                        (funcall fn)))
                    ))
                ))
-
+           
            (discriminated-dispatch ()
              ;; Allow specialized behaviors to set up dynamic control flow
              ;; scaffolding (aka UNWIND-PROTECT) surrounding a normal dispatch.
@@ -436,7 +341,7 @@ THE SOFTWARE.
               
               (t)     ;; was junk - just return T so we don't retry
               ))
-
+           
            (dispatch-loop ()
              ;; -------------------------------------------------------
              ;; Think of the *self-x* global vars as dedicated
@@ -466,19 +371,30 @@ THE SOFTWARE.
                      (go RETRY))
                    ))))
              ))
-        (declare (dynamic-extent #'%send #'%become #'%abort-beh
-                                 #'discriminated-dispatch
+        (declare (dynamic-extent #'discriminated-dispatch
                                  #'normal-dispatch
                                  #'cf-dispatch
                                  #'dispatch-loop))
-        
+          
         ;; --------------------------------------------
         
-        (let ((*send-hook*      #'%send)
-              (*become-hook*    #'%become)
-              (*ac-become-hook* #'%become)
-              (*abort-beh-hook* #'%abort-beh))
+        (aop:dflet
+          ((send (target &rest msg)
+             ;; Within one Actor invocation there can be no significance
+             ;; to the ordering of sent messages.
+             (cond
+              ((viable-actor? target)
+               (push (msg target msg) sends))
+              ((cust-can-pair-p target)
+               (apply #'send (cust-can-pair-customer target) msg))
+              ))
+           
+           (og-become (new-beh)
+             (setf pend-beh (screened-beh new-beh)))
 
+           (abort-beh ()
+             (setf pend-beh *self-beh*
+                   sends    nil)))
           (REPEAT
            (with-simple-restart (abort "Handle next event")
              (dispatch-loop)))

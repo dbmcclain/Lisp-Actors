@@ -415,9 +415,7 @@ THE SOFTWARE.
    #:rd
    #:wr)
   (:export
-   #:protecting-variables
    #:*self-msg-parent*
-   #:*at-exit-hook*
    ))
 
 (defpackage #:com.ral.actors.macros

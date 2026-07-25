@@ -17,6 +17,7 @@
 (mpc:defglobal *actors-grace-period*  5f0)  ;; period before forced shutdown termination
 
 ;; --------------------------------------------
+;; Self-init on first SEND
 
 (defun %send-to-pool (msg)
   (%initial-send-to-pool msg))
@@ -40,16 +41,6 @@
           (symbol-function '%send-to-pool) (symbol-function '%initial-send-to-pool))))
 
 ;; --------------------------------------------
-
-(defun not-in-actor (&rest ignored)
-  (declare (ignore ignored))
-  (error "BECOME while not in an Actor"))
-  
-(defun not-in-cf-actor (&rest ignored)
-  (declare (ignore ignored))
-  (error "AT-EXIT while not in a Contention-Free Actor"))
-  
-;; --------------------------------------------
 ;; Per-Thread for Activated Actors
 ;;
 ;; May become dynamically rebound during execution. Different for
@@ -65,12 +56,6 @@
 (defvar *self-msg-parent* nil)  ;; for debugging, the parent message of the current message
 
 (defvar *state*           nil)
-
-(defvar *send-hook*      #'%send-to-pool)
-(defvar *become-hook*    #'not-in-actor)
-(defvar *abort-beh-hook* #'do-nothing)
-(defvar *ac-become-hook* #'not-in-actor) ;; backup BECOME-HOOK, never rebound by WITH-CONTENTION-FREE-SEMANTICS
-(defvar *at-exit-hook*   #'not-in-cf-actor)
 
 ;; --------------------------------------------
 ;; User level has Read-Only access
@@ -98,9 +83,6 @@
 
 ;; --------------------------------------------
 #|
- *SEND-HOOK*, *BECOME-HOOK*, *ABORT-BEH-HOOK*
-   - dynamic runtime hooks for SEND, BECOME, ABORT-BEH
- 
            SELF = current Actor during behavior execution
        SELF-MSG = current message during behavior execution
        SELF-BEH = Actor behavior function when its execution was initiated
