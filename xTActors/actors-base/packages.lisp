@@ -306,7 +306,7 @@ THE SOFTWARE.
 
    #:future-become-beh
 
-   #:timed-gate
+   #:timed-once-gate
    #:timed-service
    #:with-maximum-io-syntax
 
@@ -383,7 +383,7 @@ THE SOFTWARE.
    #:cancel
    #:cancel-flag
    #:make-cancel-flag
-   #:ensure-cancellable
+   #:make-cancellable
    ))
 
 #+(OR :ALLEGRO :CCL)

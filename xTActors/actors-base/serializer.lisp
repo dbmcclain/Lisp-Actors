@@ -234,12 +234,15 @@ prefixed by our unique SELF identity"
    ))
 
 (defun once-tag (cust)
-  (create
-   (behav msg
-     (send* cust self msg)
-     (become-sink))
-   ))
-
+  (let* ((cf  (make-cancel-flag cust))
+         (tag (create
+               (behav msg
+                 (send* cust self msg)
+                 (cancel cf)
+                 (become-sink)))
+              ))
+    (make-cancellable tag cf)))
+  
 ;; ---------------------
 
 (defun serializer (svc)
@@ -252,7 +255,7 @@ prefixed by our unique SELF identity"
            ((cust . msg)
             (without-contention
              (let ((tag  (tag self)))
-               (send* svc tag msg)
+               (send* svc (make-cancellable tag cust) msg)
                (become (busy-serializer-beh cust tag nil))
                )))
            )))
@@ -262,16 +265,20 @@ prefixed by our unique SELF identity"
          ;; a message through our interposed customer TAG.
          (with-contention-free-semantics
           (alambda
-           ((atag . reply) / (eql atag tag)
+           ((atag . reply) / (eq atag tag)
             (without-contention
              (send* cur-cust reply)
-             (if (emptyq? queue)
-                 (become (serializer-beh))
-               (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
-                      (new-tag  (tag self)))
-                 (send* svc new-tag next-msg)
-                 (become (busy-serializer-beh next-cust new-tag new-queue))
-                 ))))
+             (prog ()
+               AGAIN
+               (if (emptyq? queue)
+                   (become (serializer-beh))
+                 (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
+                        (new-tag  (tag self)))
+                   (when (cancelled? next-cust)
+                     (go AGAIN))
+                   (send* svc (make-cancellable new-tag next-cust) next-msg)
+                   (become (busy-serializer-beh next-cust new-tag new-queue))
+                   )))))
            ((cust . msg)
             (without-contention
              (become (busy-serializer-beh cur-cust tag

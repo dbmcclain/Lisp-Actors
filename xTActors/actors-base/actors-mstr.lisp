@@ -103,6 +103,20 @@ THE SOFTWARE.
   (customer     nil :read-only t)
   (cancel-flag  nil :read-only t))
 
+(defgeneric make-cancellable (cust cf)
+  ;; Make a cust Actor cancellable if cf is.
+  ;; If cust is already cancellable, no change.
+  (:method ((cust actor) (cf cancel-flag))
+   (make-cust-can-pair
+    :customer    cust
+    :cancel-flag cf))
+  (:method ((cust actor) (cf cust-can-pair))
+   (make-cust-can-pair
+    :customer cust
+    :cancel-flag (cust-can-pair-cancel-flag cf)))
+  (:method (cust cf)
+   cust))
+
 (defgeneric cancelled? (x)
   (:method (x)
    nil)
@@ -130,27 +144,6 @@ THE SOFTWARE.
   (:method ((x cust-can-pair))
    (cust-can-pair-cancel-flag x)))
 
-(defgeneric ensure-cancellable (cust &optional inherit-from)
-  (:method (cust &optional inherit-from)
-   (declare (ignore inherit-from))
-   ;; either cust already is cancellable, as a cust-can-pair,
-   ;; or else we aren't even a send target.
-   cust)
-  (:method ((cust cust-can-pair) &optional (inherit-from nil inherit-from-present-p))
-   (if inherit-from-present-p  ;; explicit override?
-       (make-cust-can-pair
-        :customer    (cust-can-pair-customer cust)
-        :cancel-flag (or (cancel-flag inherit-from)
-                         (make-cancel-flag)))
-     ;; else
-     cust))
-  (:method ((cust actor) &optional inherit-from)
-   (make-cust-can-pair
-    :customer    cust
-    :cancel-flag (or (cancel-flag inherit-from)
-                     (make-cancel-flag))
-    )))
-  
 ;; --------------------------------------------
 
 (defgeneric send-to-pool (target &rest msg)

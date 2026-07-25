@@ -256,11 +256,14 @@
 (defun once (cust)
   "ONCE -- Construct an Actor to behave as a FWD relay to the
 customer, just one time."
-  (create
-   (behav (&rest msg)
-     (send* cust msg)
-     (become-sink))
-   ))
+  (let* ((cf    (make-cancel-flag cust))
+         (gate  (create
+                 (behav (&rest msg)
+                   (cancel cf)
+                   (send* cust msg)
+                   (become-sink)))
+                ))
+    (make-cancellable gate cf)))
 
 ;; -----------------------------------------
 ;; Delayed Send
@@ -318,19 +321,9 @@ customer, just one time."
 ;; --------------------------------------------
 ;; Timed Services with Cancellation on Timeout
 
-(defun once-with-cancel (cust)
-  (let* ((cf   (make-cancel-flag cust))
-         (gate (create
-                (lambda* ans
-                  (cancel cf)
-                  (send* cust ans)
-                  (become-sink)))
-               ))
-    (ensure-cancellable gate cf)))
-
-(defun timed-gate (cust &optional (timeout *timeout* timeout-present-p))
+(defun timed-once-gate (cust &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (let ((gate (once-with-cancel cust)))
+  (let ((gate (once cust)))
     (send-after timeout gate +timed-out+)
     gate))
 
@@ -342,20 +335,21 @@ customer, just one time."
   (check-timeout timeout timeout-present-p)
   (create
    (behav (cust &rest msg)
-     (send* svc (timed-gate cust timeout) msg))
+     (send* svc (timed-once-gate cust timeout) msg))
    ))
 
 ;; --------------------------------------------
 
 (defun error-reply-checker (cust &optional (error-type 'error))
-  (create
-   (alambda
-    ((ans . _) / (typep ans error-type)
-     (error ans))
-    
-    (msg
-     (send* cust msg))
-    )))
+  (let ((alt-cust (create
+                   (alambda
+                    ((ans . _) / (typep ans error-type)
+                     (error ans))
+                    
+                    (msg
+                     (send* cust msg))
+                    ))))
+    (make-cancellable alt-cust cust)))
 
 (defun timeout-checked-serivce (svc)
   ;; Make a service wrapper that checks for timeout errors on the way
@@ -413,14 +407,7 @@ customer, just one time."
   ;; message
   (create
    (behav (cust &rest msg)
-     (let* ((cf   (make-cancel-flag cust))
-            (gate (create
-                   (lambda* ans
-                     (send* cust ans)
-                     (cancel cf)
-                     (become-sink))
-                   )))
-       (apply #'send-to-all actors (ensure-cancellable gate cf) msg)))
+     (apply #'send-to-all actors (once cust) msg))
    ))
 
 (defun running-one-of-beh (cf &rest active)
@@ -449,7 +436,7 @@ customer, just one time."
     (let* ((custs (mapcar #'third msgs))
            (cust  (car custs)))
       (if (every (um:curry #'equalp cust) custs)
-          `(let ((,gate  (once-with-cancel ,cust)))
+          `(let ((,gate  (once ,cust)))
              ,@(mapcar #`(,@(um:take 2 a1) ,gate ,@(um:drop 3 a1)) msgs))
         ;; else
         (let ((tags  (mapcar (lambda (x)
@@ -461,7 +448,7 @@ customer, just one time."
                       (,gate  (create
                                (running-one-of-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
                                )))
-               ,@(mapcar #2`(,@(um:take 2 a1) (ensure-cancellable ,a2 ,cf) ,@(um:drop 3 a1)) msgs tags)))
+               ,@(mapcar #2`(,@(um:take 2 a1) (make-cancellable ,a2 ,cf) ,@(um:drop 3 a1)) msgs tags)))
           ))
       )))
 #|
@@ -471,7 +458,7 @@ Example:
  (send chan2 cust :mess13)
  ...)
 =>
-(LET ((#:GATE14654 (ONCE-WITH-CANCEL CUST)))
+(LET ((#:GATE14654 (ONCE CUST)))
   (SEND CHAN1 #:GATE14654 :MESS1)
   (SEND CHAN2 #:GATE14654 :MESS13)
   ...)
@@ -508,7 +495,7 @@ Example:
                   (,gate  (create
                            (running-alt-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
                            )))
-           ,@(mapcar #2`(,@(um:take 2 a1) (ensure-cancellable ,a2 ,cf) ,@(um:drop 3 a1)) msgs tags)))
+           ,@(mapcar #2`(,@(um:take 2 a1) (make-cancellable ,a2 ,cf) ,@(um:drop 3 a1)) msgs tags)))
       )))
 #|
 Example
@@ -524,8 +511,8 @@ Example
            (#:GATE14721
             (CREATE (RUNNING-ALT-BEH #:CF (LIST (CONS #:TAG14722 CUST1)
                                                 (CONS #:TAG14723 CUST2))))))
-    (SEND CHAN1 (ENSURE-CANCELLABLE #:TAG14722 #:CF) :MESS1)
-    (SEND CHAN2 (ENSURE-CANCELLABLE #:TAG14723 #:CF) :MESS13)
+    (SEND CHAN1 (MAKE-CANCELLABLE #:TAG14722 #:CF) :MESS1)
+    (SEND CHAN2 (MAKE-CANCELLABLE #:TAG14723 #:CF) :MESS13)
     ...))
 |#
 
@@ -536,30 +523,33 @@ Example
 ;; one response is permitted.
 
 (defun wrap (client handler)
-  (once
-   (create
-    (alambda
-     ((:nok)
-      (send handler))
-     ((ans) / (eq ans +timed-out+)
-      (send handler))
-     (ans
-      (send* client ans))
-     ))))
+  (let ((wrapper (create
+                  (alambda
+                   ((:nok)
+                    (send handler))
+                   ((ans) / (eq ans +timed-out+)
+                    (send handler))
+                   (ans
+                    (send* client ans))
+                   ))))
+  (once (make-cancellable wrapper client))
+  ))
 
 (defun also (client handler)
   ;; Similar to WRAP, but wraps the client Actor with an Actor that
   ;; will forward messages to the client and also prod the handler.
-  (create
-   (lambda* msg
-     (send* client msg)
-     (send handler))))
+  (make-cancellable
+   (create
+    (lambda* msg
+      (send* client msg)
+      (send handler)))
+   client))
 
 ;; --------------------------------------------
 
 (defun select (cust &rest services)
   ;; Obtain answer from one of the services, or a timeout.
-  (let ((gate (timed-gate cust)))
+  (let ((gate (timed-once-gate cust)))
     (send-to-all services gate)))
 
 (defun expect (actor cust &rest msg)
@@ -600,7 +590,7 @@ Example
                                )))
                         (waiting-beh)))))
     (send-after dt tag-dt) ;; won't fire until we exit beh
-    joiner
+    (make-cancellable joiner cust)
     ))
 
 

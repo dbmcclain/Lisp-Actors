@@ -371,7 +371,9 @@
                do
                  (let ((svc (funcall svc-fn arg)))
                    (assert (actor-p svc))
-                   (send svc (label joiner ix))))
+                   (send svc (make-cancellable
+                              (label joiner ix)
+                              cust))))
          ))
       )))
    (args
@@ -419,19 +421,22 @@
 (defun condenser (cust)
   ;; convert a cust Actor, which expects a single list arg, into an
   ;; Actor that accepts many args.
-  (create
-   (behav (&rest args)
-     (send cust args))
-   ))
+  (make-cancellable
+   (create
+    (behav (&rest args)
+      (send cust args)))
+   cust))
 
 (defun spreader (cust)
   ;; convert a cust Actor, which expects many args, into an Actor
   ;; which can accept a single list arg.
-  (create
-   (alambda
-    ((arg-list) 
-     (send* cust (um:mklist arg-list)))
-    )))
+  (make-cancellable
+   (create
+    (alambda
+     ((arg-list) 
+      (send* cust (um:mklist arg-list)))
+     ))
+   cust))
 
 (deflex map-reduce
   ;; MAP-REDUCE - an Actor that accepts a customer, an action Actor, a
@@ -449,9 +454,11 @@
    (alambda
     ((cust action filter-fn . args)
      (send (apply #'par-map action args)
-           (create (behav (&rest ans)
-                     (send* cust (um:collect-if filter-fn ans)))
-                   )))
+           (make-cancellable
+            (create (behav (&rest ans)
+                      (send* cust (um:collect-if filter-fn ans)))
+                    )
+            cust)))
     )))
 
 ;; ------------------------------------------------------------------
@@ -491,14 +498,15 @@
                             (behav (cust svcs ans)
                               (if (endp svcs)
                                   (send* cust ans)
-                                (β _
-                                    (send (car svcs) β)
-                                  (send iter cust (cdr svcs) ans))
+                                (unless (cancelled? cust)
+                                  (β _
+                                      (send (car svcs) (make-cancellable β cust))
+                                    (send iter cust (cdr svcs) ans)))
                                 )))))
            (create
             (behav (cust)
               (β ans
-                  (send (car services) β)
+                  (send (car services) (make-cancellable β cust))
                 (send iter cust (cdr services) ans) ) ))
            ))
         ))
@@ -514,11 +522,12 @@
         (t
          (um:letrec ((iter (create
                             (behav (cust svcs)
-                              (if (cdr svcs)
-                                  (β _
-                                      (send (car svcs) β)
-                                    (send iter cust (cdr svcs)))
-                                (send (car svcs) cust))
+                              (unless (cancelled? cust)
+                                (if (cdr svcs)
+                                    (β _
+                                        (send (car svcs) (make-cancellable β cust))
+                                      (send iter cust (cdr svcs)))
+                                  (send (car svcs) cust)))
                               ))))
            (create
             (behav (cust)
@@ -558,12 +567,13 @@
             (create
              (alambda
               ((cust)
-               (β (ans . anss)
-                   (send svc β)
-                 (if (funcall test-fn ans)
-                     (send* cust ans anss)
-                   (send (ser-and/or test-fn zero-act svcs) cust))))
-              ))
+               (unless (cancelled? cust)
+                 (β (ans . anss)
+                     (send svc (make-cancellable β cust))
+                   (if (funcall test-fn ans)
+                       (send* cust ans anss)
+                     (send (ser-and/or test-fn zero-act svcs) cust))))
+               )))
           ;; else
           svc))
     ;; else
@@ -606,7 +616,7 @@
                          )))
                (let ((tags (mapcar (lambda (svc)
                                      (let ((tag  (tag self)))
-                                       (send svc tag)
+                                       (send svc (make-cancellable tag cust))
                                        tag))
                                    services)))
                  (become (beh tags)))
