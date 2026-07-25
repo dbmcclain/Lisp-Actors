@@ -150,15 +150,13 @@
 
     ;; --------------------------------------------
     
-    ((cust :add-service-with-id id actor)
-     ;; insert ahead of any with same id
-     (let ((new-svcs (acons id (local-service actor) svcs)))
-       (β! (local-services-beh new-svcs encryptor decryptor))
-       (>> cust id)))
-    
     ((cust :add-service actor)
      ;; used for connection handlers
-     (>> self cust :add-service-with-id (uuid:make-v1-uuid) actor))
+     ;; insert ahead of any with same id
+     (let* ((id       (uuid:make-v1-uuid))
+            (new-svcs (acons id (local-service actor) svcs)))
+       (β! (local-services-beh new-svcs encryptor decryptor))
+       (>> cust id)))
     
     ((cust :add-single-use-service id actor)
      (let ((new-svcs (acons id (ephem-service actor) svcs)))
@@ -168,27 +166,18 @@
     
     ;; --------------------------------------------
     
-    ((cust :add-ephemeral-client-with-id id actor ttl)
-     (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
-       (β! (local-services-beh new-svcs encryptor decryptor))
-       (>> cust id)
-       (when ttl
-         (send-after ttl self sink :remove-service id))))
-    
-    #| ;; unused
-    ((cust :add-ephemeral-client actor ttl)
-     ;; used for transient customer proxies
-     (>> self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
-    |#
-    
     ((cust :add-ephemeral-clients clients ttl)
-     (if clients
-         (let+ ((me  self)
-                ( ((id . ac) . rest) clients)
-                (:β _  (racurry me :add-ephemeral-client-with-id id ac ttl)))
-           (>> me cust :add-ephemeral-clients rest ttl) )
-       ;; else
-       (>> cust :ok)))
+     (um:nlet iter ((lst      clients)
+                    (new-svcs svcs))
+       (if (endp lst)
+           (progn
+             (β! (local-services-beh new-svcs encryptor decryptor))
+             (>> cust :ok))
+         (let+ (( ((id . ac) . rest) lst))
+           (when ttl
+             (send-after ttl self sink :remove-service id))
+           (go-iter rest (acons id (ephem-service ac ttl) new-svcs))
+           ))))
     
     ;; --------------------------------------------
     
@@ -349,6 +338,9 @@
 
 (defmethod loenc:before-store ((obj actor))
   (translate-actor-to-proxy obj))
+
+(defmethod loenc:before-store ((obj cust-can-pair))
+  (translate-actor-to-proxy (cust-can-pair-customer obj)))
    
 (defun client-marshal-encoder (local-services)
   ;; serialize an outgoing message, translating all embedded Actors

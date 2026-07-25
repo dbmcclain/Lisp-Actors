@@ -384,6 +384,9 @@ THE SOFTWARE.
    #:cancel-flag
    #:make-cancel-flag
    #:make-cancellable
+   #:cust-can-pair
+   #:cust-can-pair-customer
+   #:cust-can-pair-cancel-flag
    ))
 
 #+(OR :ALLEGRO :CCL)
