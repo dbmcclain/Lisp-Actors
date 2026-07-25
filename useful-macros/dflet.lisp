@@ -38,7 +38,9 @@ THE SOFTWARE.
    #:ensure-dynsym
    #:defdynfun
    #:redefdynfun
-   #:get-defined-dynsym
+   #:get-defined-dynsym 
+   #:rebind
+   #:redef
    ))
 
 (in-package #:com.ral.useful-macros.dflet)
@@ -122,3 +124,9 @@ THE SOFTWARE.
   (f 5))
  |#
 
+(defmacro rebind (fname fn)
+  (let ((dynsym (get-defined-dynsym fname)))
+    `(setf ,dynsym ,fn)))
+
+(defmacro redef (fname args &body funbody)
+  `(rebind ,fname (lambda ,args ,@funbody)))
