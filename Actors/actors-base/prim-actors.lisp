@@ -299,8 +299,12 @@ customer, just one time."
     ))
 
 (defun send-at (time actor &rest msg)
-  ;; Assumes time, entered as hh:mm:ss, is in Turns.
+  ;; Assumes time, entered as hh:mm:ss.sss, is in Turns. Or else, it is a
+  ;; timestamp representing an absolute time in elapsed seconds from
+  ;; start of Lisp Universal TIme.  (yyyy:mm:ddThh:mm:ss.sssU±hh).
+  ;;
   ;; 0 <= Turns < 1.0.
+  ;;
   (let* ((target-time (if (< time 1.0)
                           (+ (* time 86400.) (time0-today)) ;; as from hh:mm:ss => Turns
                         time)) ;; as from timestamp 2026/07/27T12:00:00 => whole secs

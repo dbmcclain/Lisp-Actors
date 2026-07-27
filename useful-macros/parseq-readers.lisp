@@ -23,7 +23,7 @@
 (defun trim-seps (txt)
   (remove-if (um:rcurry #'find "_,") txt))
 
-(defun rd (str &rest strs)
+ (defun rd (str &rest strs)
   (let ((s  (if strs
                 (apply #'concatenate 'string str strs)
               str)))
@@ -260,18 +260,20 @@
       (- (signify sgn (rd digs))))
     ))
 
+#|
 (defun turns-to-hhmmss (turns)
   ;; Incoming is unsigned turns.
   ;; This function only works correctly for (0 <= turns < 1).
   (let* ((whole (truncate turns))
          (frac  (- turns whole))
-         (secs  (round (* frac 24. 60. 60.))))
+         (secs  (* frac 24. 60. 60.)))
     (multiple-value-bind (mins ss)
         (truncate secs 60.)
       (multiple-value-bind (hrs mm)
           (truncate mins 60.)
         (list hrs mm ss)
         ))))
+|#
 
 (defrule ut-timestamp () (and ts-date
                               (? (and (or #\T #\t) unsigned-sexi))
@@ -286,15 +288,30 @@
     (let ((tz-hrs  (and tz
                         (list (or (second tz)
                                   0)))))
-      (flet ((enc (hh mm ss)
-               (apply #'encode-universal-time
-                      ss mm hh
-                      dd mo yyyy
-                      tz-hrs)))
+      (flet ((enc (yyyy mo dd hh mm ss)
+               (let* ((wss  (truncate ss))
+                      (fss  (- ss wss)))
+                 (+ fss
+                    (apply #'encode-universal-time
+                           wss mm hh
+                           dd mo yyyy
+                           tz-hrs))
+                 ))
+             (adj (yyyy mo dd turns)
+               (let* ((nsec0  (encode-universal-time 0 0 0 dd mo yyyy))
+                      (nstot  (+ nsec0 (* turns 24. 60. 60.)))
+                      (whole  (truncate nstot))
+                      (frac   (- nstot whole)))
+                 (multiple-value-bind (ss mm hh dd mo yyyy)
+                     (decode-universal-time whole)
+                   (values yyyy mo dd hh mm (+ ss frac))
+                   ))))
         (cond (turns
-               (apply #'enc (turns-to-hhmmss (second turns))))
+               (multiple-value-bind (yyyy mo dd hh mm ss)
+                   (adj yyyy mo dd (second turns))
+                 (enc yyyy mo dd hh mm ss)))
               (t
-               (enc 0 0 0))
+               (enc yyyy mo dd 0 0 0))
               )))
     ))
 
