@@ -163,5 +163,9 @@ THE SOFTWARE.
    #:process-exclusive-unlock
    #:mailbox
    #:yield
+
+   #:tlet
+   #:tlet*
+   #:with-tls
    ))
 

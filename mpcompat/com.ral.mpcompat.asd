@@ -36,6 +36,7 @@ THE SOFTWARE.
                 #+:CLOZURE    (:file "mp-compat-clozure")
                 ;; (:file "mp-compat-critical")
                 ;; (:file "multi-locks")
+                (:file "tlet")
                 )
   :serial t
   :depends-on   (
