@@ -31,7 +31,7 @@
 ;; ----------------------------------
 
 (defpackage #:com.ral.useful-macros.fdpl
-  (:use #:common-lisp #:ac)
+  (:use #:common-lisp)
   (:import-from #:um
    #:augmented-value
    #:val-of

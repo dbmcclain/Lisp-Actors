@@ -422,8 +422,9 @@ THE SOFTWARE.
 
 (defun run-actor-dispatch-loop (done-ptr)
   ;; Called at system startup for Dispatch pool threads
-  (with-simple-restart (abort "Terminate Actor thread")
-    (actor-dispatch-loop nil done-ptr)))
+  (with-ironclad-safety
+   (with-simple-restart (abort "Terminate Actor thread")
+     (actor-dispatch-loop nil done-ptr))))
 
 (defun run-ask (actor &rest message)
   #F
@@ -444,8 +445,9 @@ THE SOFTWARE.
     ;; return back to the caller of ASK.
     (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
     (apply #'send-to-pool actor me message)
-    (with-simple-restart (abort "Terminate ASK")
-      (actor-dispatch-loop *ASK-TIMEOUT* (um:pointer-& done)))
+    (with-ironclad-safety
+     (with-simple-restart (abort "Terminate ASK")
+       (actor-dispatch-loop *ASK-TIMEOUT* (um:pointer-& done))))
     (when done
       (values (car done) t))
     ))

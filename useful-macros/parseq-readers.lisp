@@ -367,7 +367,7 @@
 
 ;; --------------------------------------------
 ;; Parseq appears to be not thread-safe...
-
+#|
 (defvar *parseq-lock*  (mpc:make-lock))
 
 #+:LISPWORKS
@@ -385,7 +385,7 @@
                             :arguments '(rule sequence &rest args)
                             :force-use-arguments t)
   (cl-advice:add-advice :around 'parseq #'safe-parseq))
-
+|#
 ;; --------------------------------------------
 
 (defun read-extended-number (s)

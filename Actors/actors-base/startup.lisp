@@ -276,7 +276,7 @@
             (with-timeout (* 2 *ACTORS-GRACE-PERIOD*)
               (ask custodian 'shutdown)
               ))
-          (reset-send-to-pool)))
+           (reset-send-to-pool)))
       ))))
 
 #|

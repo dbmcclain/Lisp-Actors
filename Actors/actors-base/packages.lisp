@@ -357,6 +357,8 @@ THE SOFTWARE.
    #:cust-can-pair
    #:cust-can-pair-customer
    #:cust-can-pair-cancel-flag
+
+   #:with-ironclad-safety
    ))
 
 #+(OR :ALLEGRO :CCL)

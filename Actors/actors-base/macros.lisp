@@ -252,3 +252,7 @@
   `(%def-actor deflex* ,name ,state-args ,@body))
 
 ;; --------------------------------------------
+
+(defmacro with-ironclad-safety (&body body)
+  `(let ((ironclad:*prng* (ironclad:make-prng :os)))
+     ,@body))

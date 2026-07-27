@@ -43,6 +43,12 @@
 ;; ----------------------------------------------------
 ;; Ironclad needs a separate PRNG for each thread.
 
+#| ;; commented out - DM/RAL  2026/07/27T04:15:48U
+
+;; This advice does not hit MP:FUNCALL-ASYNC.  It is better to be
+;; proactive and use WITH-IRONCLAD-SAFETY in any thread that could
+;; potentially invoke the PRNG.
+
 (lw:defadvice (mp:process-run-function ensure-fresh-prng :around)
     (name kwds fun &rest args)
   (labels ((wrapper (&rest proc-args)
@@ -51,7 +57,7 @@
                (apply fun proc-args))))
     (apply #'lw:call-next-advice name kwds #'wrapper args)
     ))
-
+|#
 ;; ----------------------------------------------------
 
 (defmethod ord:compare ((a uuid:uuid) (b uuid:uuid))

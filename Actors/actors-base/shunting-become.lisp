@@ -71,7 +71,9 @@
                     (declare (ignore c))
                     (send-to-pool err)) ;; unconditional immediate SEND
                   ))
-        (send tag (funcall fn))
+        (aop:dflet ((become (beh)
+                      (send tag beh)))
+          (funcall fn))
         ))
     ))
 

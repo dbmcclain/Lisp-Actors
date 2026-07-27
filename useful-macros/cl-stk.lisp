@@ -4,7 +4,7 @@
 ;; ----------------------------------
 
 (defpackage #:cl-stk
-  (:use #:common-lisp :ac)
+  (:use #:common-lisp)
   (:export
    #:fdpl
    #:fdpl+
