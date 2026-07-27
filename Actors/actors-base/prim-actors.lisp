@@ -298,6 +298,23 @@ customer, just one time."
       (apply #'forced-send-after dt actor msg))
     ))
 
+(defun send-at (time actor &rest msg)
+  ;; Assumes time, entered as hh:mm:ss, is in Turns.
+  ;; 0 <= Turns < 1.0.
+  (let* ((target-time (if (< time 1.0)
+                          (+ (* time 86400.) (time0-today)) ;; as from hh:mm:ss => Turns
+                        time)) ;; as from timestamp 2026/07/27T12:00:00 => whole secs
+         (dt (- target-time (get-universal-time))))
+    (apply #'send-after dt actor msg)
+    ))
+
+(defun time0-today ()
+  ;; Find the Lisp Universal (local) Time at the start of today.
+  (multiple-value-bind (ss mm hh dd mo yr)
+      (decode-universal-time (get-universal-time))
+    (declare (ignore ss mm hh))
+    (encode-universal-time 0 0 0 dd mo yr)))
+
 ;; --------------------------------------------
 ;; Timeouts...
 ;;

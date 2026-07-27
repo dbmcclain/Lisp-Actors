@@ -261,13 +261,17 @@
     ))
 
 (defun turns-to-hhmmss (turns)
-  (let ((secs (round (* turns 3600.))))
+  ;; Incoming is unsigned turns.
+  ;; This function only works correctly for (0 <= turns < 1).
+  (let* ((whole (truncate turns))
+         (frac  (- turns whole))
+         (secs  (round (* frac 24. 60. 60.))))
     (multiple-value-bind (mins ss)
         (truncate secs 60.)
       (multiple-value-bind (hrs mm)
           (truncate mins 60.)
-        (list (mod hrs 24.) mm ss))
-      )))
+        (list hrs mm ss)
+        ))))
 
 (defrule ut-timestamp () (and ts-date
                               (? (and (or #\T #\t) unsigned-sexi))
