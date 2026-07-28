@@ -13,7 +13,7 @@
 
 ;; --------------------------------------------
 
-(defvar *dbg* t)
+(defvar *dbg* nil)
 
 (defun dbg (str)
   (when *dbg*
@@ -21,9 +21,13 @@
     (princ str)))
 
 (defun trim-seps (txt)
-  (remove-if (um:rcurry #'find "_,") txt))
+  (flet ((is-sep? (ch)
+           (find ch "_,")))
+    (declare (dynamic-extent #'is-sep?))
+    (remove-if #'is-sep? txt)
+    ))
 
- (defun rd (str &rest strs)
+(defun rd (str &rest strs)
   (let ((s  (if strs
                 (apply #'concatenate 'string str strs)
               str)))
@@ -33,7 +37,7 @@
            val)
       )))
 
-(defun signify (sgn val)
+(defun sign-ify (sgn val)
   (if (eql sgn #\-)
       (- val)
     val))
@@ -257,7 +261,7 @@
     ;; (dbg "ts-tz")
     ;; (dbg lst)
     (let ((*read-base* 10.))
-      (- (signify sgn (rd digs))))
+      (- (sign-ify sgn (rd digs))))
     ))
 
 #|
@@ -306,6 +310,7 @@
                      (decode-universal-time whole)
                    (values yyyy mo dd hh mm (+ ss frac))
                    ))))
+        (declare (dynamic-extent #'enc #'adj))
         (cond (turns
                (multiple-value-bind (yyyy mo dd hh mm ss)
                    (adj yyyy mo dd (second turns))
@@ -329,7 +334,7 @@
 ;; --------------------------------------------
 
 (defrule signed-real     () (and (? sign) unsigned-real)
-  (:function #'signify))
+  (:function #'sign-ify))
 
 (defrule pr-imaginary () (and signed-real imag-mark)
   (:lambda (val _)
@@ -340,7 +345,7 @@
 (defrule pr-complex () (and signed-real sign unsigned-real imag-mark)
   (:lambda (re sgn im _)
     (declare (ignore _))
-    (complex re (signify sgn im))
+    (complex re (sign-ify sgn im))
     ))
 
 ;; --------------------------------------------
@@ -357,7 +362,7 @@
   (:lambda (sgn str)
     ;; (dbg "dashed-number")
     ;; (dbg (list sgn str tl))
-    (signify sgn (rd str))
+    (sign-ify sgn (rd str))
     ))
 
 ;; --------------------------------------------
