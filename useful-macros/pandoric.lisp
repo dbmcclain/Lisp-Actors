@@ -224,6 +224,7 @@ THE SOFTWARE.
 
 #|
 (pandoriclet () ((a 1) (b 2)) (lambda (x y) body))
+(pandoriclet-get '((this) ((a 1)) ((b 2))))
 |#
 
 (defun pandoric-get-error (sym)
@@ -327,7 +328,7 @@ THE SOFTWARE.
  |#
 
 (defmacro! plambda (largs pargs &body body &environment env)
-  (let ((pargs (mapcar #'list `(this ,@pargs))))
+  (let ((pargs (mapcar #'mklist `(this ,@pargs))))
     (ensure-thread-eval
      `(let (this ,a!self)
         (setq ,a!self ,(pandoric-body pargs)
@@ -339,6 +340,8 @@ THE SOFTWARE.
 (editor:setup-indent "plambda" 2)
         
 #|
+(pandoric-body '((this) ((a 1)) ((b 2))))
+
 (plambda (x y) ((a 1) (b 2))
   (print (list a b x y)))
 (plambda (n) ((acc 0)) (incf acc n))
