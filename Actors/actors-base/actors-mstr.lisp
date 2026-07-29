@@ -60,7 +60,12 @@ THE SOFTWARE.
 |#
 
 (defun msg (target args)
-  (list* *self-context* target args))
+  (if (or *self-msg-parent*
+          (getf *self-context* :msg-parent))
+      (let ((*self-context*  (list* :msg-parent *self-evt* *self-context*)))
+        (list* *self-context* target args))
+    ;; else
+    (list* *self-context* target args)))
 
 ;; --------------------------------------------
 

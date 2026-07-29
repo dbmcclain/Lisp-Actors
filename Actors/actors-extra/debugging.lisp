@@ -102,13 +102,8 @@
   (set-parent nil))
 
 (defun do-with-protected-parent (t/f fn)
-  (let ((old-parent self-msg-parent))
-    (unwind-protect
-        (progn
-          (set-parent t/f)
-          (funcall fn))
-      (set-parent old-parent)
-      )))
+  (let ((*self-msg-parent* t/f))
+    (funcall fn)))
 
 (defmacro with-tracing (&body body)
   `(do-with-protected-parent t (lambda ()
@@ -128,15 +123,15 @@
 
 (defun tracer-beh ()
   (alambda
-   ((cust :trace from)
-    (um:nlet iter ((msg   from)
+   ((cust :trace)
+    (um:nlet iter ((msg   (getf *self-context* :msg-parent))
                    (trail nil))
       (cond
        ((and (consp msg)
              (consp (car msg)))
         ;; global mutation, needs to be behind a Serializer
-        (let ((parent (shiftf (car msg) (uuid:make-v1-uuid))))
-          (go-iter parent (cons msg trail))
+        (let ((parent-ctxt (shiftf (car msg) (uuid:make-v1-uuid))))
+          (go-iter (getf parent-ctxt :msg-parent) (cons msg trail))
           ))
        (t
         (send cust (cons "=== Traceback ===" (nreverse
@@ -151,15 +146,15 @@
   (serializer (create (tracer-beh))))
 
 (defun trace-me ()
-  (send tracer writeln :trace self-msg-parent))
+  (send tracer writeln :trace))
 
 (defun dbg-trace ()
   ;; for use in a debugger REPL
-  (send-to-pool tracer writeln :trace self-msg-parent))
+  (send-to-pool tracer writeln :trace))
 
 (defun dbg-trace-inspect ()
   ;; for use in a debugger REPL
-  (send-to-pool tracer (create #'inspect) :trace self-msg-parent))
+  (send-to-pool tracer (create #'inspect) :trace))
 
 ;; ---------------------------------------------------
 ;; Memory Stressor... When message tracing is on, this chews up
