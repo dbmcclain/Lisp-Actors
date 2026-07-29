@@ -139,7 +139,7 @@
   (lambda* msg
     (let ((tag (tag self)))
       (send kvdb-orchestrator tag :make-kvdb path)
-      (become (fut-kvdb-handler tag path (list msg)))
+      (become (fut-kvdb-handler tag path (list (stash-msg msg))))
       )))
 
 (deflex* kvdb

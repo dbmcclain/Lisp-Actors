@@ -282,11 +282,12 @@
     (labels ((release (cust new-db)
                (send cust new-db)
                (do-queue (msg queue)
-                 (send* self msg))
+                 (destructuring-bind (*self-context* . mesg) msg
+                   (send* self mesg)))
                (become (trans-gate-beh :saver saver :db new-db)))
              (stash ()
                (become (apply #'busy-trans-gate-beh (with *state*
-                                                      :queue (addq queue msg))))
+                                                      :queue (addq queue (stash-msg msg)))))
                ))
       
       (match msg
