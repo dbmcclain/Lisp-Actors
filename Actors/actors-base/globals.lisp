@@ -29,6 +29,8 @@
 (defvar *self*            nil)  ;; the current Actor
 (defvar *self-beh*        nil)  ;; the behavior closure of the current Actor
 (defvar *self-msg*        nil)  ;; the full message
+(defvar *self-context*    nil)  ;; the "dynamic-state" of a logical task
+(defvar *self-evt*        nil)  ;; the current message incl framing
 (defvar *self-msg-parent* nil)  ;; for debugging, the parent message of the current message
 
 (defvar *state*           nil)
@@ -49,12 +51,21 @@
 (defun fn-self-msg ()
   *self-msg*)
 
+(defun fn-self-context ()
+  *self-context*)
+
+(defun fn-self-evt ()
+  *self-evt*)
+
+
 (defun fn-self-msg-parent ()
   *self-msg-parent*)
 
 (define-symbol-macro self             (fn-self))
 (define-symbol-macro self-beh         (fn-self-beh))
 (define-symbol-macro self-msg         (fn-self-msg))
+(define-symbol-macro self-context     (fn-self-context))
+(define-symbol-macro self-evt         (fb-self-evt))
 (define-symbol-macro self-msg-parent  (fn-self-msg-parent))
 
 ;; --------------------------------------------

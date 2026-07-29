@@ -433,6 +433,7 @@
 (tst "rambo.local")
 (tst "dachshund.local")
 (tst "honeypot.local")
+(tst "ocatillo.local")
 (tst "david-pc.local")
 (tst "umbra.local")
 (tst "zircon.local")

@@ -120,6 +120,8 @@ THE SOFTWARE.
    #:self-env
    #:self-msg
    #:self-msg-parent
+   #:self-context
+   #:*self-context*
    #:screened-beh
    #:resolved-beh
    
@@ -160,6 +162,7 @@ THE SOFTWARE.
    #:once
    #:send-to-all
    #:send-all-to
+   #:stash-msg
    #:race
    #:one-of
    #:alt-with-nak
@@ -354,10 +357,6 @@ THE SOFTWARE.
    #:cancel
    #:cancel-flag
    #:make-cancel-flag
-   #:make-cancellable
-   #:cust-can-pair
-   #:cust-can-pair-customer
-   #:cust-can-pair-cancel-flag
 
    #:with-ironclad-safety
    ))

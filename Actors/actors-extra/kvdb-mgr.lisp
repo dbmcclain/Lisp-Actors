@@ -362,7 +362,7 @@
    ;; -------------------
    ;; accumulate client requests until we open for business
    (msg
-    (become (nascent-database-beh tag saver (cons msg msgs) )))
+    (become (nascent-database-beh tag saver (cons (stash-msg msg) msgs) )))
    ))
 
 ;; -----------------------------------------------------------

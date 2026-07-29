@@ -60,7 +60,7 @@ THE SOFTWARE.
 |#
 
 (defun msg (target args)
-  (list* self-msg-parent target args))
+  (list* *self-context* target args))
 
 ;; --------------------------------------------
 
@@ -69,12 +69,9 @@ THE SOFTWARE.
 
 (defun normal-send-to-pool (target &rest msg)
   ;; the default SEND for foreign (non-Actor) threads
-  (cond
-   ((viable-actor? target)
-    (mpc:mailbox-send *central-mail* (msg target msg)))
-   ((cust-can-pair-p target)
-    (apply #'send-to-pool (cust-can-pair-customer target) msg))
-   ))
+  (when (viable-actor? target)
+    (mpc:mailbox-send *central-mail* (msg target msg))
+    ))
 
 (defun initial-send-to-pool (target &rest msg)
   (unless *central-mail*
@@ -379,9 +376,11 @@ THE SOFTWARE.
              
              (REPEAT
               (WITH-NEXT-EVENT (evt)
-                (let ((*self-msg-parent* (and (car (the cons evt)) evt))
+                (let ((*self-evt*        evt)
+                      (*self-context*    (car  (the cons evt)))
                       (*self*            (cadr (the cons evt)))   ;; self
                       (*self-msg*        (cddr (the cons evt))))  ;; self-msg
+
                   (tagbody
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))
@@ -401,12 +400,9 @@ THE SOFTWARE.
           ((send (target &rest msg)
              ;; Within one Actor invocation there can be no significance
              ;; to the ordering of sent messages.
-             (cond
-              ((viable-actor? target)
-               (push (msg target msg) sends))
-              ((cust-can-pair-p target)
-               (apply #'send (cust-can-pair-customer target) msg))
-              ))
+             (when (viable-actor? target)
+               (push (msg target msg) sends)
+               ))
            
            (og-become (new-beh)
              (setf pend-beh (screened-beh new-beh)))
@@ -433,7 +429,8 @@ THE SOFTWARE.
   ;; while waiting for messages to dispatch. The loop checks a shared
   ;; DONE cell whose CAR will be non-NIL when an answer has arrived.
   
-  (let* ((done nil)
+  (let* ((*self-context* *self-context*) ;; protective binding
+         (done nil)
          (me   (once
                 (create
                  (lambda* msg

@@ -339,9 +339,6 @@
 (defmethod loenc:before-store ((obj actor))
   (translate-actor-to-proxy obj))
 
-(defmethod loenc:before-store ((obj cust-can-pair))
-  (translate-actor-to-proxy (cust-can-pair-customer obj)))
-   
 (defun client-marshal-encoder (local-services)
   ;; serialize an outgoing message, translating all embedded Actors
   ;; into client proxies and planting corresponding ephemeral

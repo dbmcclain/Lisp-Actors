@@ -1,4 +1,3 @@
-
 ;; prim-actors.lisp - A collection of useful primitive Actors
 ;;
 ;; DM/RAL 05/21
@@ -256,14 +255,13 @@
 (defun once (cust)
   "ONCE -- Construct an Actor to behave as a FWD relay to the
 customer, just one time."
-  (let* ((cf    (make-cancel-flag cust))
-         (gate  (create
-                 (behav (&rest msg)
-                   (cancel cf)
-                   (send* cust msg)
-                   (become-sink)))
-                ))
-    (make-cancellable gate cf)))
+  (let ((cf  (make-cancel-flag)))
+    (create
+     (behav (&rest msg)
+       (cancel cf)
+       (send* cust msg)
+       (become-sink)))
+    ))
 
 ;; -----------------------------------------
 ;; Delayed Send
@@ -362,15 +360,14 @@ customer, just one time."
 ;; --------------------------------------------
 
 (defun error-reply-checker (cust &optional (error-type 'error))
-  (let ((alt-cust (create
-                   (alambda
-                    ((ans . _) / (typep ans error-type)
-                     (error ans))
-                    
-                    (msg
-                     (send* cust msg))
-                    ))))
-    (make-cancellable alt-cust cust)))
+  (create
+   (alambda
+    ((ans . _) / (typep ans error-type)
+     (error ans))
+    
+    (msg
+     (send* cust msg))
+    )))
 
 (defun timeout-checked-serivce (svc)
   ;; Make a service wrapper that checks for timeout errors on the way
@@ -417,9 +414,11 @@ customer, just one time."
     (send* actor msg)))
 
 (defun send-all-to (actor msg-list)
-  "SEND-ALL-TO -- Send all of the messages to an Actor."
+  "SEND-ALL-TO -- Send all of the stashed messages to an Actor."
   (dolist (msg msg-list)
-    (send* actor msg)))
+    (destructuring-bind (*self-context* . mesg) msg
+      (send* actor mesg))
+    ))
 
 ;; ---------------------
 
@@ -469,7 +468,7 @@ customer, just one time."
                       (,gate  (create
                                (running-one-of-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
                                )))
-               ,@(mapcar #2`(,@(um:take 2 a1) (make-cancellable ,a2 ,cf) ,@(um:drop 3 a1)) msgs tags)))
+               ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags)))
           ))
       )))
 #|
@@ -516,7 +515,7 @@ Example:
                   (,gate  (create
                            (running-alt-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
                            )))
-           ,@(mapcar #2`(,@(um:take 2 a1) (make-cancellable ,a2 ,cf) ,@(um:drop 3 a1)) msgs tags)))
+           ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags)))
       )))
 #|
 Example
@@ -532,8 +531,8 @@ Example
            (#:GATE14721
             (CREATE (RUNNING-ALT-BEH #:CF (LIST (CONS #:TAG14722 CUST1)
                                                 (CONS #:TAG14723 CUST2))))))
-    (SEND CHAN1 (MAKE-CANCELLABLE #:TAG14722 #:CF) :MESS1)
-    (SEND CHAN2 (MAKE-CANCELLABLE #:TAG14723 #:CF) :MESS13)
+    (SEND CHAN1 #:TAG14722 :MESS1)
+    (SEND CHAN2 #:TAG14723 :MESS13)
     ...))
 |#
 
@@ -544,27 +543,24 @@ Example
 ;; one response is permitted.
 
 (defun wrap (client handler)
-  (let ((wrapper (create
-                  (alambda
-                   ((:nok)
-                    (send handler))
-                   ((ans) / (eq ans +timed-out+)
-                    (send handler))
-                   (ans
-                    (send* client ans))
-                   ))))
-  (once (make-cancellable wrapper client))
-  ))
+  (create
+   (alambda
+    ((:nok)
+     (send handler))
+    ((ans) / (eq ans +timed-out+)
+     (send handler))
+    (ans
+     (send* client ans))
+    )))
 
 (defun also (client handler)
   ;; Similar to WRAP, but wraps the client Actor with an Actor that
   ;; will forward messages to the client and also prod the handler.
-  (make-cancellable
-   (create
-    (lambda* msg
-      (send* client msg)
-      (send handler)))
-   client))
+  (create
+   (lambda* msg
+     (send* client msg)
+     (send handler))
+   ))
 
 ;; --------------------------------------------
 
@@ -607,11 +603,11 @@ Example
                                 (send-all-to cust msgs))
                                
                                (msg
-                                (become (apply #'waiting-beh msg msgs)))
+                                (become (apply #'waiting-beh (stash-msg msg) msgs)))
                                )))
                         (waiting-beh)))))
     (send-after dt tag-dt) ;; won't fire until we exit beh
-    (make-cancellable joiner cust)
+    joiner
     ))
 
 

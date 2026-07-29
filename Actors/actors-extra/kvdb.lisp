@@ -132,7 +132,7 @@
     (become (fwd-beh kvdb))
     (send-all-to kvdb msgs))
    (msg
-    (become (fut-kvdb-handler tag (cons msg msgs))))
+    (become (fut-kvdb-handler tag (cons (stash-msg msg) msgs))))
    ))
 
 (defun lazy-fut-kvdb-handler-beh (path)

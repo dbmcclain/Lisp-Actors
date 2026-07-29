@@ -51,7 +51,7 @@
         (exit new-beh))
        (msg
         (without-contention
-         (become (shunting-beh tag err sav-beh (cons msg pending)))
+         (become (shunting-beh tag err sav-beh (cons (stash-msg msg) pending)))
          ))
        ))))
 

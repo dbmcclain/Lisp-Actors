@@ -233,6 +233,9 @@ prefixed by our unique SELF identity"
      (send* cust self msg))
    ))
 
+(defun stash-msg (msg)
+  (cons *self-context* msg))
+
 ;; ---------------------
 
 (defun serializer (svc)
@@ -245,7 +248,7 @@ prefixed by our unique SELF identity"
            ((cust . msg)
             (without-contention
              (let ((tag  (tag self)))
-               (send* svc (make-cancellable tag cust) msg)
+               (send* svc tag msg)
                (become (busy-serializer-beh cust tag nil))
                )))
            )))
@@ -258,21 +261,22 @@ prefixed by our unique SELF identity"
            ((atag . reply) / (eq atag tag)
             (without-contention
              (send* cur-cust reply)
-             (prog ()
+             (prog ((q queue))
                AGAIN
-               (if (emptyq? queue)
+               (if (emptyq? q)
                    (become (serializer-beh))
-                 (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
-                        (new-tag  (tag self)))
-                   (when (cancelled? next-cust)
-                     (go AGAIN))
-                   (send* svc (make-cancellable new-tag next-cust) next-msg)
+                 (let+ ((:mvl ((next-cust *self-context* . next-msg) &optional new-queue _) (popq q)))
+                 (when (cancelled?)
+                   (setf q new-queue)
+                   (go AGAIN))
+                 (let ((new-tag  (tag self)))
+                   (send* svc new-tag next-msg)
                    (become (busy-serializer-beh next-cust new-tag new-queue))
-                   )))))
+                   ))))))
            ((cust . msg)
             (without-contention
              (become (busy-serializer-beh cur-cust tag
-                                          (addq queue (cons cust msg))))))
+                                          (addq queue (cons cust (stash-msg msg)) )))))
            ))) )
     (create (serializer-beh))
     ))
