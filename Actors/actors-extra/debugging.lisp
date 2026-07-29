@@ -124,22 +124,16 @@
 (defun tracer-beh ()
   (alambda
    ((cust :trace)
-    (um:nlet iter ((msg   (getf *self-context* :msg-parent))
+    (um:nlet iter ((evt   (getf *self-context* :msg-parent))
                    (trail nil))
-      (cond
-       ((and (consp msg)
-             (consp (car msg)))
-        ;; global mutation, needs to be behind a Serializer
-        (let ((parent-ctxt (shiftf (car msg) (uuid:make-v1-uuid))))
-          (go-iter (getf parent-ctxt :msg-parent) (cons msg trail))
-          ))
-       (t
-        (send cust (cons "=== Traceback ===" (nreverse
-                                              (if msg
-                                                  (cons msg trail)
-                                                trail))
-                         )))
-       )))
+      (if (and (consp evt)
+               (consp (car evt)))
+          ;; global mutation, needs to be behind a Serializer
+          (let ((parent-ctxt (shiftf (car evt) (uuid:make-v1-uuid))))
+            (go-iter (getf parent-ctxt :msg-parent) (cons evt trail)))
+        ;; else - report back, eliding the one that got us here...
+        (send cust (cons "=== Traceback ===" (cdr (nreverse trail))))
+        )))
    ))
 
 (deflex tracer
