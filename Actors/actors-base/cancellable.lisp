@@ -26,21 +26,36 @@
 ;; upstream CANCEL-FLAGs.
 ;;
 
+(defun cancel-flag ()
+  (getf *self-context* :cancel))
+
 (defstruct (cancel-flag
             (:constructor %make-cancel-flag))
   cancelled?
-  (link (getf *self-context* :cancel) :read-only t))
+  (link (cancel-flag) :read-only t))
 
 (defun make-cancel-flag ()
-  (let ((flag (%make-cancel-flag)))
-    (setf *self-context* (list* :cancel flag *self-context*))
-    flag))
+  (%make-cancel-flag))
 
 (defun cancel (flag)
   (setf (cancel-flag-cancelled? flag) t))
 
-(defun cancelled? (&optional (flag (getf *self-context* :cancel)))
+(defun cancelled? (&optional (flag (cancel-flag)))
   (and flag
        (or (cancel-flag-cancelled? flag)
            (cancelled? (cancel-flag-link flag)))))
 
+
+
+(defmacro with-cancel-flag (cf &body body)
+  `(do-with-cancel-flag (lambda (,cf)
+                          ,@body)))
+
+(defun do-with-cancel-flag (fn)
+  (let* ((flag  (make-cancel-flag))
+         (*self-context*  (list* :cancel flag *self-context*)))
+    (funcall fn flag)))
+
+(defmacro with-context (ctxt &body body)
+  `(let ((*self-context*  ,ctxt))
+     ,@body))

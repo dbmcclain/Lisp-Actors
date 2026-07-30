@@ -251,17 +251,42 @@
   (create (fwd-beh actor)))
 
 ;; ---------------------------------
+;; RETURN-TAG -- we face a bit of a dilemma with Actors...
+;;
+;; Actor code has a striking similarity to CPS code. And on a
+;; call/return architecture there is a bit of a mis-fit with CPS code.
+;; Unless you implement a trampoline, you build up an indefinite depth
+;; on the return stack, with return addresses that are never taken.
+;;
+;; So too with our SELF-CONTEXT in Actors code. If Actors augment the
+;; context, we face an ever growing list of context items. It would
+;; not be correct to trim them back on a "Return" to some customer. It
+;; should be up to the customer to trim back any accumulated context,
+;; if they desire.
+;;
+;; There really is no Send/Reply in Actor code, although it can
+;; sometimes look like that with continuation Actors.
 
-(defun once (cust)
+(defun return-tag (cust &optional (ctxt self-context))
+  ;; A forwarding Actor that reatores the running context to a former
+  ;; value
+  (create
+   (lambda* msg
+     (with-context ctxt
+       (send* cust msg)))
+   ))
+
+;; --------------------------------------------
+
+(defun once (cust cf)
   "ONCE -- Construct an Actor to behave as a FWD relay to the
 customer, just one time."
-  (let ((cf  (make-cancel-flag)))
-    (create
-     (behav (&rest msg)
-       (cancel cf)
-       (send* cust msg)
-       (become-sink)))
-    ))
+  (create
+   (behav (&rest msg)
+     (cancel cf)
+     (send* cust msg)
+     (become-sink))
+   ))
 
 ;; -----------------------------------------
 ;; Delayed Send
@@ -340,9 +365,9 @@ customer, just one time."
 ;; --------------------------------------------
 ;; Timed Services with Cancellation on Timeout
 
-(defun timed-once-gate (cust &optional (timeout *timeout* timeout-present-p))
+(defun timed-once-gate (cust cf &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (let ((gate (once cust)))
+  (let ((gate (once cust cf)))
     (send-after timeout gate +timed-out+)
     gate))
 
@@ -354,7 +379,8 @@ customer, just one time."
   (check-timeout timeout timeout-present-p)
   (create
    (behav (cust &rest msg)
-     (send* svc (timed-once-gate cust timeout) msg))
+     (with-cancel-flag cf
+       (send* svc (timed-once-gate cust cf timeout) msg)))
    ))
 
 ;; --------------------------------------------
@@ -427,7 +453,8 @@ customer, just one time."
   ;; message
   (create
    (behav (cust &rest msg)
-     (apply #'send-to-all actors (once cust) msg))
+     (with-cancel-flag cf
+       (apply #'send-to-all actors (once cust cf) msg)))
    ))
 
 (defun running-one-of-beh (cf &rest active)
@@ -456,14 +483,15 @@ customer, just one time."
     (let* ((custs (mapcar #'third msgs))
            (cust  (car custs)))
       (if (every (um:curry #'equalp cust) custs)
-          `(let ((,gate  (once ,cust)))
-             ,@(mapcar #`(,@(um:take 2 a1) ,gate ,@(um:drop 3 a1)) msgs))
+          `(with-cancel-flag ,cf
+             (let ((,gate  (once ,cust ,cf)))
+               ,@(mapcar #`(,@(um:take 2 a1) ,gate ,@(um:drop 3 a1)) msgs)))
         ;; else
         (let ((tags  (mapcar (lambda (x)
                                (declare (ignore x))
                                (gensym (string :tag)))
                              msgs)))
-          `(let ((,cf  (make-cancel-flag)))
+          `(with-cancel-flag ,cf
              (actors (,@(mapcar #`(,a1 (tag  ,gate)) tags)
                       (,gate  (create
                                (running-one-of-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
@@ -510,7 +538,7 @@ Example:
                            (declare (ignore x))
                            (gensym (string :tag)))
                          msgs)))
-      `(let ((,cf  (make-cancel-flag)))
+      `(with-cancel-flag ,cf
          (actors (,@(mapcar #`(,a1 (tag ,gate)) tags)
                   (,gate  (create
                            (running-alt-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
@@ -566,8 +594,9 @@ Example
 
 (defun select (cust &rest services)
   ;; Obtain answer from one of the services, or a timeout.
-  (let ((gate (timed-once-gate cust)))
-    (send-to-all services gate)))
+  (with-cancel-flag cf
+    (let ((gate (timed-once-gate cust cf)))
+      (send-to-all services gate))))
 
 (defun expect (actor cust &rest msg)
   ;; Expect an answer from actor being sent to cust, or timeout.

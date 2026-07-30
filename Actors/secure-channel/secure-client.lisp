@@ -418,7 +418,8 @@
 (defun tst (host)
   (let ((reval (remote-service :eval host)))
     (β (ans)
-        (>> (checked-service (timed-service reval 3)) β '(list (um:zulu-date-string) (machine-instance)))
+        (>> (checked-service (timed-service reval 3)) β
+            '(list (um:zulu-date-string) (machine-instance)))
       #|
         (>> reval β '(um:capture-ans-or-exn
                             (error "test-error")))

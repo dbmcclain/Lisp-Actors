@@ -732,7 +732,8 @@
   (create
    (behav (bytevec enc)
      (β (ans)
-         (send (timed-service (self-synca:stream-decoder β) 1) :deliver 1 enc)
+         (with-cancel-flag cf
+           (send (timed-service (self-synca:stream-decoder β) cf 1) :deliver 1 enc))
        (assert (equalp bytevec ans))
        ))
    ))

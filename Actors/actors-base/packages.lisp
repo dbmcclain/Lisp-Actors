@@ -357,6 +357,9 @@ THE SOFTWARE.
    #:cancel
    #:cancel-flag
    #:make-cancel-flag
+   #:with-cancel-flag
+   #:with-context
+   #:return-tag
 
    #:with-ironclad-safety
    ))

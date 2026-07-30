@@ -131,7 +131,7 @@
           ;; global mutation, needs to be behind a Serializer
           (let ((parent (shiftf (car evt) (uuid:make-v1-uuid))))
             (go-iter parent (cons evt trail)))
-        ;; else - report back, eliding the one that got us here...
+        ;; else
         (send cust (cons "=== Traceback ===" (nreverse
                                               (if evt
                                                   (cons evt trail)
