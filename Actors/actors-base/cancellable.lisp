@@ -27,7 +27,7 @@
 ;;
 
 (defun cancel-flag ()
-  (getf *self-context* :cancel))
+  (getf self-context :cancel))
 
 (defstruct (cancel-flag
             (:constructor %make-cancel-flag))
@@ -47,15 +47,17 @@
 
 
 
+(defmacro with-context (ctxt &body body)
+  `(let ((*self-context*  ,ctxt))
+     ,@body))
+
 (defmacro with-cancel-flag (cf &body body)
   `(do-with-cancel-flag (lambda (,cf)
                           ,@body)))
 
 (defun do-with-cancel-flag (fn)
-  (let* ((flag  (make-cancel-flag))
-         (*self-context*  (list* :cancel flag *self-context*)))
-    (funcall fn flag)))
+  (let ((flag  (make-cancel-flag)))
+    (with-context (list* :cancel flag self-context)
+      (funcall fn flag))))
 
-(defmacro with-context (ctxt &body body)
-  `(let ((*self-context*  ,ctxt))
-     ,@body))
+

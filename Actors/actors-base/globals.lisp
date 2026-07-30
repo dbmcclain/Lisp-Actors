@@ -39,7 +39,7 @@
 ;;
 ;; (In general, to make something read-only, place it within a function.)
 
-(declaim (inline fn-self fn-self-beh fn-self-msg fn-self-msg-parent))
+(declaim (inline fn-self fn-self-beh fn-self-msg fn-self-msg-parent self-context))
 
 (defun fn-self ()
   *self*)

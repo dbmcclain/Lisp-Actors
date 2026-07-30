@@ -255,17 +255,25 @@
 ;;
 ;; Actor code has a striking similarity to CPS code. And on a
 ;; call/return architecture there is a bit of a mis-fit with CPS code.
-;; Unless you implement a trampoline, you build up an indefinite depth
-;; on the return stack, with return addresses that are never taken.
+;; Unless you implement a trampoline, you accumulate an indefinite
+;; depth of return pointers on the return stack.
 ;;
-;; So too with our SELF-CONTEXT in Actors code. If Actors augment the
-;; context, we face an ever growing list of context items. It would
-;; not be correct to trim them back on a "Return" to some customer. It
-;; should be up to the customer to trim back any accumulated context,
-;; if they desire.
+;; In CPS code, the return addresses are never used. So it is always
+;; safe to ignore return addresses. And that's why a trampoline works.
+;;
+;; With our SELF-CONTEXT in Actors code, we have a similar growth as
+;; Actors augment the context. But unlike a trampoline for CPS, it
+;; would not be correct to trim the context on a "Return" to some
+;; customer. The customer might or might not be a "return" pointer.
+;; And it should be up to the unlimate customer to trim back any
+;; accumulated context, if desired.
 ;;
 ;; There really is no Send/Reply in Actor code, although it can
 ;; sometimes look like that with continuation Actors.
+;;
+;; So with Actors, when is it safe to trim back the accumulating
+;; context state?
+
 
 (defun return-tag (cust &optional (ctxt self-context))
   ;; A forwarding Actor that reatores the running context to a former
