@@ -46,12 +46,12 @@ THE SOFTWARE.
 #|
      Message Event Frame: Just a LIST of items.
 
-     +------------+ +------------+ +------------+ +------------+
-     | Parent Msg | |   Target   | |    Msg     | |    ...     |
-     +------------+ +------+-----+ +-----+------+ +------------+
-                           |             |
-                           |             +-- SELF-MSG ----->
-                           +-- SELF
+     +------------+ +------------+ +------------+ +------------+ +------------+
+     | Parent Msg | |  Context   | |   Target   | |    Msg     | |    ...     |
+     +------------+ +------------+ +------+-----+ +-----+------+ +------------+
+                                          |             |
+                                          |             +-- SELF-MSG ----->
+                                          +-- SELF
                            
      When tracing, Parent Msg points to the parent message frame from
      which this message was derived. Otherwise, NIL. (Potentially very
@@ -60,12 +60,7 @@ THE SOFTWARE.
 |#
 
 (defun msg (target args)
-  (if (or *self-msg-parent*
-          (getf *self-context* :msg-parent))
-      (let ((*self-context*  (list* :msg-parent *self-evt* *self-context*)))
-        (list* *self-context* target args))
-    ;; else
-    (list* *self-context* target args)))
+  (list* *self-msg-parent* *self-context* target args))
 
 ;; --------------------------------------------
 
@@ -381,10 +376,10 @@ THE SOFTWARE.
              
              (REPEAT
               (WITH-NEXT-EVENT (evt)
-                (let ((*self-evt*        evt)
-                      (*self-context*    (car  (the cons evt)))
-                      (*self*            (cadr (the cons evt)))   ;; self
-                      (*self-msg*        (cddr (the cons evt))))  ;; self-msg
+                (let ((*self-msg-parent* (and (first evt) evt))
+                      (*self-context*    (second (the cons evt)))
+                      (*self*            (third  (the cons evt)))   ;; self
+                      (*self-msg*        (cdddr  (the cons evt))))  ;; self-msg
 
                   (tagbody
                    RETRY

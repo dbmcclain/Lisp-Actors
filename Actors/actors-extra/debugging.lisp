@@ -123,16 +123,19 @@
 
 (defun tracer-beh ()
   (alambda
-   ((cust :trace)
-    (um:nlet iter ((evt   (getf *self-context* :msg-parent))
+   ((cust :trace from)
+    (um:nlet iter ((evt   from)
                    (trail nil))
       (if (and (consp evt)
                (consp (car evt)))
           ;; global mutation, needs to be behind a Serializer
-          (let ((parent-ctxt (shiftf (car evt) (uuid:make-v1-uuid))))
-            (go-iter (getf parent-ctxt :msg-parent) (cons evt trail)))
+          (let ((parent (shiftf (car evt) (uuid:make-v1-uuid))))
+            (go-iter parent (cons evt trail)))
         ;; else - report back, eliding the one that got us here...
-        (send cust (cons "=== Traceback ===" (cdr (nreverse trail))))
+        (send cust (cons "=== Traceback ===" (nreverse
+                                              (if evt
+                                                  (cons evt trail)
+                                                trail))))
         )))
    ))
 
@@ -140,15 +143,15 @@
   (serializer (create (tracer-beh))))
 
 (defun trace-me ()
-  (send tracer writeln :trace))
+  (send tracer writeln :trace self-msg-parent))
 
 (defun dbg-trace ()
   ;; for use in a debugger REPL
-  (send-to-pool tracer writeln :trace))
+  (send-to-pool tracer writeln :trace self-msg-parent))
 
 (defun dbg-trace-inspect ()
   ;; for use in a debugger REPL
-  (send-to-pool tracer (create #'inspect) :trace))
+  (send-to-pool tracer (create #'inspect) :trace self-msg-parent))
 
 ;; ---------------------------------------------------
 ;; Memory Stressor... When message tracing is on, this chews up
