@@ -59,7 +59,7 @@ THE SOFTWARE.
      needed along an activation chain of interest.)
 |#
 
-(defun msg (target args)
+(defun evt (target args)
   (list* *self-msg-parent* *self-context* target args))
 
 ;; --------------------------------------------
@@ -70,7 +70,7 @@ THE SOFTWARE.
 (defun normal-send-to-pool (target &rest msg)
   ;; the default SEND for foreign (non-Actor) threads
   (when (viable-actor? target)
-    (mpc:mailbox-send *central-mail* (msg target msg))
+    (mpc:mailbox-send *central-mail* (evt target msg))
     ))
 
 (defun initial-send-to-pool (target &rest msg)
@@ -305,8 +305,8 @@ THE SOFTWARE.
              (WITH-NEXT-EVENT ((var) &body body)
                `(when-let (,var (mpc:mailbox-read *central-mail* nil timeout))
                   ,@body))
-             (SEND-EVENT (msg)
-               `(mpc:mailbox-send *central-mail* ,msg)))
+             (SEND-EVENT (evt)
+               `(mpc:mailbox-send *central-mail* ,evt)))
     
     (let (sends pend-beh)
       (labels
@@ -329,8 +329,8 @@ THE SOFTWARE.
                  (return-from normal-dispatch nil))
                
                (when sends
-                 (dolist (msg (the list sends))
-                   (SEND-EVENT msg)))
+                 (dolist (evt (the list sends))
+                   (SEND-EVENT evt)))
                t))
            
            (cf-dispatch ()
@@ -401,7 +401,7 @@ THE SOFTWARE.
              ;; Within one Actor invocation there can be no significance
              ;; to the ordering of sent messages.
              (when (viable-actor? target)
-               (push (msg target msg) sends)
+               (push (evt target msg) sends)
                ))
            
            (og-become (new-beh)
