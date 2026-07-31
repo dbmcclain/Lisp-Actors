@@ -286,14 +286,15 @@
 
 ;; --------------------------------------------
 
-(defun once (cust cf)
+(defun once (cust cf ctxt)
   "ONCE -- Construct an Actor to behave as a FWD relay to the
 customer, just one time."
   (create
    (behav (&rest msg)
      (cancel cf)
-     (send* cust msg)
-     (become-sink))
+     (with-context ctxt
+       (send* cust msg)
+       (become-sink)))
    ))
 
 ;; -----------------------------------------
@@ -373,9 +374,9 @@ customer, just one time."
 ;; --------------------------------------------
 ;; Timed Services with Cancellation on Timeout
 
-(defun timed-once-gate (cust cf &optional (timeout *timeout* timeout-present-p))
+(defun timed-once-gate (cust cf ctxt &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (let ((gate (once cust cf)))
+  (let ((gate (once cust cf ctxt)))
     (send-after timeout gate +timed-out+)
     gate))
 
@@ -387,8 +388,8 @@ customer, just one time."
   (check-timeout timeout timeout-present-p)
   (create
    (behav (cust &rest msg)
-     (with-cancel-flag cf
-       (send* svc (timed-once-gate cust cf timeout) msg)))
+     (with-cancel-flag (cf ctxt)
+       (send* svc (timed-once-gate cust cf ctxt timeout) msg)))
    ))
 
 ;; --------------------------------------------
@@ -461,20 +462,21 @@ customer, just one time."
   ;; message
   (create
    (behav (cust &rest msg)
-     (with-cancel-flag cf
-       (apply #'send-to-all actors (once cust cf) msg)))
+     (with-cancel-flag (cf ctxt)
+       (apply #'send-to-all actors (once cust cf ctxt) msg)))
    ))
 
-(defun running-one-of-beh (cf &rest active)
+(defun running-one-of-beh (cf ctxt &rest active)
   ;; Sends result from successful channel and :NOK to all other
   ;; waiting customers.
   (alambda
    ((atag . ans)
     (let* ((pair (assoc atag active))
            (cust (cdr pair)))
-      (send* cust ans)
-      (cancel cf)
-      (become-sink)))
+      (with-context ctxt
+        (send* cust ans)
+        (cancel cf)
+        (become-sink))))
    ))
 
 (defmacro one-of (&rest msgs)
@@ -487,22 +489,22 @@ customer, just one time."
   ;; are left dangling. If that isn't what you want, then see
   ;; ALT-WITH-NAK below.
   ;;
-  (um:with-unique-names (cf gate)
+  (um:with-unique-names (cf ctxt gate)
     (let* ((custs (mapcar #'third msgs))
            (cust  (car custs)))
       (if (every (um:curry #'equalp cust) custs)
-          `(with-cancel-flag ,cf
-             (let ((,gate  (once ,cust ,cf)))
+          `(with-cancel-flag (,cf ,ctxt)
+             (let ((,gate  (once ,cust ,cf ,ctxt)))
                ,@(mapcar #`(,@(um:take 2 a1) ,gate ,@(um:drop 3 a1)) msgs)))
         ;; else
         (let ((tags  (mapcar (lambda (x)
                                (declare (ignore x))
                                (gensym (string :tag)))
                              msgs)))
-          `(with-cancel-flag ,cf
+          `(with-cancel-flag (,cf ,ctxt)
              (actors (,@(mapcar #`(,a1 (tag  ,gate)) tags)
                       (,gate  (create
-                               (running-one-of-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
+                               (running-one-of-beh ,cf ,ctxt ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
                                )))
                ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags)))
           ))
@@ -520,7 +522,7 @@ Example:
   ...)
 |#
 
-(defun running-alt-beh (cf &rest active)
+(defun running-alt-beh (cf ctxt &rest active)
   ;; Sends result from successful channel and :NOK to all other
   ;; waiting customers.
   (alambda
@@ -528,28 +530,29 @@ Example:
     (cancel cf)
     (let* ((pair (assoc atag active))
            (cust (cdr pair)))
-      (send* cust ans)
-      (dolist (ent active)
-        (let ((cust′ (cdr ent)))
-          (unless (eq cust′ cust)
-            (send cust′ :nok))))
-      (become-sink)
+      (with-context ctxt
+        (send* cust ans)
+        (dolist (ent active)
+          (let ((cust′ (cdr ent)))
+            (unless (eq cust′ cust)
+              (send cust′ :nok))))
+        (become-sink))
       ))
    ))
 
 (defmacro alt-with-nak (&rest msgs)
   ;; Allow only the first responder, pass along its response to its customer,
   ;; and pass along :NOK to all other customers in this race.
-  (um:with-unique-names (cf gate)
+  (um:with-unique-names (cf ctxt gate)
     (let ((custs (mapcar #'third msgs))
           (tags  (mapcar (lambda (x)
                            (declare (ignore x))
                            (gensym (string :tag)))
                          msgs)))
-      `(with-cancel-flag ,cf
+      `(with-cancel-flag (,cf ,ctxt)
          (actors (,@(mapcar #`(,a1 (tag ,gate)) tags)
                   (,gate  (create
-                           (running-alt-beh ,cf ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
+                           (running-alt-beh ,cf ,ctxt ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
                            )))
            ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags)))
       )))
@@ -602,8 +605,8 @@ Example
 
 (defun select (cust &rest services)
   ;; Obtain answer from one of the services, or a timeout.
-  (with-cancel-flag cf
-    (let ((gate (timed-once-gate cust cf)))
+  (with-cancel-flag (cf ctxt)
+    (let ((gate (timed-once-gate cust cf ctxt)))
       (send-to-all services gate))))
 
 (defun expect (actor cust &rest msg)

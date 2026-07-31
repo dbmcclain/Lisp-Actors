@@ -429,13 +429,13 @@ THE SOFTWARE.
   ;; while waiting for messages to dispatch. The loop checks a shared
   ;; DONE cell whose CAR will be non-NIL when an answer has arrived.
 
-  (with-cancel-flag cf
+  (with-cancel-flag (cf ctxt)
     (let* ((done nil)
            (me   (once
                   (create
                    (lambda* msg
                      (setf done (list msg))))
-                  cf)))
+                  cf ctxt)))
       ;; NOTE: If you have no *TIMEOUT*, and the Actor target becomes
       ;; SINK along the way, (or otherwise, fails to respond), you will
       ;; become permanently stuck running Dispatch duty, and never

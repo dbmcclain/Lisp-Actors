@@ -120,10 +120,14 @@
 ;;
 
 (defmacro beta (args form &body body)
-  `(let ((beta (create
-                (behav ,args ,@body))
-             ))
-     ,form) )
+  (um:with-gensyms (sav)
+    `(let ((beta (create
+                  (let ((,sav self-context))
+                    (behav ,args
+                      (with-context ,sav
+                      ,@body))))
+               ))
+       ,form) ))
 
 #+:LISPWORKS
 (editor:indent-like "beta" 'destructuring-bind)
@@ -142,10 +146,14 @@
 
 (µ β (args form &body body)
   ;; β is a BETA
-  `(let ((β (create
-             (behav ,args ,@body))
-             ))
-     ,form) )
+  (um:with-gensyms (sav)
+    `(let ((β (create
+               (let ((,sav self-context))
+                 (behav ,args
+                   (with-context ,sav
+                     ,@body))))
+               ))
+       ,form) ))
     
 
 #+:LISPWORKS

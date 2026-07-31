@@ -51,13 +51,14 @@
   `(let ((*self-context*  ,ctxt))
      ,@body))
 
-(defmacro with-cancel-flag (cf &body body)
-  `(do-with-cancel-flag (lambda (,cf)
+(defmacro with-cancel-flag ((cf ctxt) &body body)
+  `(do-with-cancel-flag (lambda (,cf ,ctxt)
                           ,@body)))
 
 (defun do-with-cancel-flag (fn)
-  (let ((flag  (make-cancel-flag)))
+  (let ((flag  (make-cancel-flag))
+        (sav   self-context))
     (with-context (list* :cancel flag self-context)
-      (funcall fn flag))))
+      (funcall fn flag sav))))
 
 

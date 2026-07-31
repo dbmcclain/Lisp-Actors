@@ -249,18 +249,19 @@ prefixed by our unique SELF identity"
             (without-contention
              (let ((tag  (tag self)))
                (send* svc tag msg)
-               (become (busy-serializer-beh cust tag nil))
+               (become (busy-serializer-beh cust self-context tag nil))
                )))
            )))
 
-       (busy-serializer-beh (cur-cust tag queue)
+       (busy-serializer-beh (cur-cust ctxt tag queue)
          ;; Busy state - new arriving messages get enqueued until we receive
          ;; a message through our interposed customer TAG.
          (with-contention-free-semantics
           (alambda
            ((atag . reply) / (eq atag tag)
             (without-contention
-             (send* cur-cust reply)
+             (with-context ctxt
+               (send* cur-cust reply))
              (prog ((q queue))
                AGAIN
                (if (emptyq? q)
@@ -271,11 +272,11 @@ prefixed by our unique SELF identity"
                      (go AGAIN))
                    (let ((new-tag  (tag self)))
                      (send* svc new-tag next-msg)
-                     (become (busy-serializer-beh next-cust new-tag new-queue))
+                     (become (busy-serializer-beh next-cust self-context new-tag new-queue))
                      ))))))
            ((cust . msg)
             (without-contention
-             (become (busy-serializer-beh cur-cust tag
+             (become (busy-serializer-beh cur-cust ctxt tag
                                           (addq queue (cons cust (stash-msg msg)) )))))
            ))) )
     (create (serializer-beh))
