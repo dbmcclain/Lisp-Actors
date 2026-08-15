@@ -140,14 +140,7 @@
 (defstruct (ephem-service
             (:include local-service)
             (:constructor ephem-service (handler &optional (ttl *default-ephemeral-ttl*))))
-  (ctxt self-context)
   ttl)
-
-(defmethod context-for ((svc local-service))
-  self-context)
-
-(defmethod context-for ((svc ephem-service))
-  (ephem-service-ctxt svc))
 
 ;; -------------------------------------------------------------------
 
@@ -224,8 +217,7 @@
      (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
        (when pair
          (let ((svc (cdr pair)))
-           (with-context (context-for svc)
-             (>>* (local-service-handler svc) msg))
+           (>>* (local-service-handler svc) msg)
            (when (ephem-service-p svc)
              (cond ((ephem-service-ttl svc)
                     ;; possibly counterintuitive... if we have traffic on this

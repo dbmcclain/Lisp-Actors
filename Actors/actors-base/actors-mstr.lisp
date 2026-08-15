@@ -46,12 +46,12 @@ THE SOFTWARE.
 #|
      Message Event Frame: Just a LIST of items.
 
-     +------------+ +------------+ +------------+ +------------+ +------------+
-     | Parent Msg | |  Context   | |   Target   | |    Msg     | |    ...     |
-     +------------+ +------------+ +------+-----+ +-----+------+ +------------+
-                                          |             |
-                                          |             +-- SELF-MSG ----->
-                                          +-- SELF
+     +------------+ +------------+ +------------+ +------------+
+     | Parent Msg | |   Target   | |    Msg     | |    ...     |
+     +------------+ +------+-----+ +-----+------+ +------------+
+                           |             |
+                           |             +-- SELF-MSG ----->
+                           +-- SELF
                            
      When tracing, Parent Msg points to the parent message frame from
      which this message was derived. Otherwise, NIL. (Potentially very
@@ -60,7 +60,7 @@ THE SOFTWARE.
 |#
 
 (defun evt (target args)
-  (list* *self-msg-parent* *self-context* target args))
+  (list* *self-msg-parent* target args))
 
 ;; --------------------------------------------
 
@@ -377,9 +377,8 @@ THE SOFTWARE.
              (REPEAT
               (WITH-NEXT-EVENT (evt)
                 (let ((*self-msg-parent* (and (first evt) evt))
-                      (*self-context*    (second (the cons evt)))
-                      (*self*            (third  (the cons evt)))   ;; self
-                      (*self-msg*        (cdddr  (the cons evt))))  ;; self-msg
+                      (*self*            (second (the cons evt)))   ;; self
+                      (*self-msg*        (cddr   (the cons evt))))  ;; self-msg
 
                   (tagbody
                    RETRY
@@ -429,25 +428,24 @@ THE SOFTWARE.
   ;; while waiting for messages to dispatch. The loop checks a shared
   ;; DONE cell whose CAR will be non-NIL when an answer has arrived.
 
-  (with-cancel-flag (cf ctxt)
-    (let* ((done nil)
-           (me   (once
-                  (create
-                   (lambda* msg
-                     (setf done (list msg))))
-                  cf ctxt)))
-      ;; NOTE: If you have no *TIMEOUT*, and the Actor target becomes
-      ;; SINK along the way, (or otherwise, fails to respond), you will
-      ;; become permanently stuck running Dispatch duty, and never
-      ;; return back to the caller of ASK.
-      (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
-      (apply #'send-to-pool actor me message)
-      (with-ironclad-safety
-        (with-simple-restart (abort "Terminate ASK")
-          (actor-dispatch-loop *ASK-TIMEOUT* (um:pointer-& done))))
-      (when done
-        (values (car done) t))
-      )))
+  (let* ((done nil)
+         (me   (once
+                (create
+                 (lambda* msg
+                   (setf done (list msg)))
+               ))))
+    ;; NOTE: If you have no *TIMEOUT*, and the Actor target becomes
+    ;; SINK along the way, (or otherwise, fails to respond), you will
+    ;; become permanently stuck running Dispatch duty, and never
+    ;; return back to the caller of ASK.
+    (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
+    (apply #'send-to-pool actor me message)
+    (with-ironclad-safety
+      (with-simple-restart (abort "Terminate ASK")
+        (actor-dispatch-loop *ASK-TIMEOUT* (um:pointer-& done))))
+    (when done
+      (values (car done) t))
+    ))
 
 ;; ----------------------------------------------------------------
 ;; Error Handling

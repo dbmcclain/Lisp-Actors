@@ -282,13 +282,12 @@
     (labels ((release (cust new-db)
                (send cust new-db)
                (do-queue (msg queue)
-                 (destructuring-bind (*self-context* . mesg) msg
-                   (send* self mesg)))
+                 (send* self msg))
                (become (trans-gate-beh :saver saver :db new-db)))
              (stash ()
                (become (apply #'busy-trans-gate-beh (with *state*
-                                                      :queue (addq queue (stash-msg msg)))))
-               ))
+                                                      :queue (addq queue msg))
+                              ))))
       
       (match msg
         ((acust :req-excl an-owner _)
@@ -363,7 +362,7 @@
    ;; -------------------
    ;; accumulate client requests until we open for business
    (msg
-    (become (nascent-database-beh tag saver (cons (stash-msg msg) msgs) )))
+    (become (nascent-database-beh tag saver (cons msg msgs) )))
    ))
 
 ;; -----------------------------------------------------------

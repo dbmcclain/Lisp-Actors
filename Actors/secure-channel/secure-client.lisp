@@ -421,9 +421,9 @@
         (>> (checked-service (timed-service reval 3)) β
             '(list (um:zulu-date-string) (machine-instance)))
       #|
-        (>> reval β '(um:capture-ans-or-exn
-                            (error "test-error")))
-        |#
+      (>> reval β '(um:capture-ans-or-exn
+                     (error "test-error")))
+      |#
       ;; (error "Waht!?")
       (trace-me)
       (>> fmt-println "reval sez: ~S" (um:recover-ans-or-exn ans)))

@@ -491,11 +491,10 @@
                             (behav (cust svcs ans)
                               (if (endp svcs)
                                   (send* cust ans)
-                                (unless (cancelled?)
-                                  (β _
-                                      (send (car svcs) β)
-                                    (send iter cust (cdr svcs) ans)))
-                                )))))
+                                (β _
+                                    (send (car svcs) β)
+                                  (send iter cust (cdr svcs) ans)))
+                              ))))
            (create
             (behav (cust)
               (β ans
@@ -515,13 +514,12 @@
         (t
          (um:letrec ((iter (create
                             (behav (cust svcs)
-                              (unless (cancelled?)
-                                (if (cdr svcs)
-                                    (β _
-                                        (send (car svcs) β)
-                                      (send iter cust (cdr svcs)))
-                                  (send (car svcs) cust)))
-                              ))))
+                              (if (cdr svcs)
+                                  (β _
+                                      (send (car svcs) β)
+                                    (send iter cust (cdr svcs)))
+                                (send (car svcs) cust)))
+                            )))
            (create
             (behav (cust)
               (send iter cust services)))
@@ -560,12 +558,11 @@
             (create
              (alambda
               ((cust)
-               (unless (cancelled?)
-                 (β (ans . anss)
-                     (send svc β)
-                   (if (funcall test-fn ans)
-                       (send* cust ans anss)
-                     (send (ser-and/or test-fn zero-act svcs) cust))))
+               (β (ans . anss)
+                   (send svc β)
+                 (if (funcall test-fn ans)
+                     (send* cust ans anss)
+                   (send (ser-and/or test-fn zero-act svcs) cust)))
                )))
           ;; else
           svc))

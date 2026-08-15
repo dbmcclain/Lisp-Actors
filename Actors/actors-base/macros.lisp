@@ -122,10 +122,8 @@
 (defmacro beta (args form &body body)
   (um:with-gensyms (sav)
     `(let ((beta (create
-                  (let ((,sav self-context))
-                    (behav ,args
-                      (with-context ,sav
-                      ,@body))))
+                  (behav ,args
+                    ,@body))
                ))
        ,form) ))
 
@@ -148,10 +146,8 @@
   ;; β is a BETA
   (um:with-gensyms (sav)
     `(let ((β (create
-               (let ((,sav self-context))
-                 (behav ,args
-                   (with-context ,sav
-                     ,@body))))
+               (behav ,args
+                 ,@body))
                ))
        ,form) ))
     

@@ -250,51 +250,15 @@
 (defun fwd (actor)
   (create (fwd-beh actor)))
 
-;; ---------------------------------
-;; RETURN-TAG -- we face a bit of a dilemma with Actors...
-;;
-;; Actor code has a striking similarity to CPS code. And on a
-;; call/return architecture there is a bit of a mis-fit with CPS code.
-;; Unless you implement a trampoline, you accumulate an indefinite
-;; depth of return pointers on the return stack.
-;;
-;; In CPS code, the return addresses are never used. So it is always
-;; safe to ignore return addresses. And that's why a trampoline works.
-;;
-;; With our SELF-CONTEXT in Actors code, we have a similar growth as
-;; Actors augment the context. But unlike a trampoline for CPS, it
-;; would not be correct to trim the context on a "Return" to some
-;; customer. The customer might or might not be a "return" pointer.
-;; And it should be up to the unlimate customer to trim back any
-;; accumulated context, if desired.
-;;
-;; There really is no Send/Reply in Actor code, although it can
-;; sometimes look like that with continuation Actors.
-;;
-;; So with Actors, when is it safe to trim back the accumulating
-;; context state?
-
-
-(defun return-tag (cust &optional (ctxt self-context))
-  ;; A forwarding Actor that reatores the running context to a former
-  ;; value
-  (create
-   (lambda* msg
-     (with-context ctxt
-       (send* cust msg)))
-   ))
-
 ;; --------------------------------------------
 
-(defun once (cust cf ctxt)
+(defun once (cust)
   "ONCE -- Construct an Actor to behave as a FWD relay to the
 customer, just one time."
   (create
    (behav (&rest msg)
-     (cancel cf)
-     (with-context ctxt
-       (send* cust msg)
-       (become-sink)))
+     (send* cust msg)
+     (become-sink))
    ))
 
 ;; -----------------------------------------
@@ -374,9 +338,9 @@ customer, just one time."
 ;; --------------------------------------------
 ;; Timed Services with Cancellation on Timeout
 
-(defun timed-once-gate (cust cf ctxt &optional (timeout *timeout* timeout-present-p))
+(defun timed-once-gate (cust &optional (timeout *timeout* timeout-present-p))
   (check-timeout timeout timeout-present-p)
-  (let ((gate (once cust cf ctxt)))
+  (let ((gate (once cust)))
     (send-after timeout gate +timed-out+)
     gate))
 
@@ -388,8 +352,7 @@ customer, just one time."
   (check-timeout timeout timeout-present-p)
   (create
    (behav (cust &rest msg)
-     (with-cancel-flag (cf ctxt)
-       (send* svc (timed-once-gate cust cf ctxt timeout) msg)))
+     (send* svc (timed-once-gate cust timeout) msg))
    ))
 
 ;; --------------------------------------------
@@ -451,8 +414,7 @@ customer, just one time."
 (defun send-all-to (actor msg-list)
   "SEND-ALL-TO -- Send all of the stashed messages to an Actor."
   (dolist (msg msg-list)
-    (destructuring-bind (*self-context* . mesg) msg
-      (send* actor mesg))
+    (send* actor msg)
     ))
 
 ;; ---------------------
@@ -462,21 +424,18 @@ customer, just one time."
   ;; message
   (create
    (behav (cust &rest msg)
-     (with-cancel-flag (cf ctxt)
-       (apply #'send-to-all actors (once cust cf ctxt) msg)))
+     (apply #'send-to-all actors (once cust) msg))
    ))
 
-(defun running-one-of-beh (cf ctxt &rest active)
+(defun running-one-of-beh (&rest active)
   ;; Sends result from successful channel and :NOK to all other
   ;; waiting customers.
   (alambda
    ((atag . ans)
     (let* ((pair (assoc atag active))
            (cust (cdr pair)))
-      (with-context ctxt
-        (send* cust ans)
-        (cancel cf)
-        (become-sink))))
+      (send* cust ans)
+      (become-sink)))
    ))
 
 (defmacro one-of (&rest msgs)
@@ -493,20 +452,18 @@ customer, just one time."
     (let* ((custs (mapcar #'third msgs))
            (cust  (car custs)))
       (if (every (um:curry #'equalp cust) custs)
-          `(with-cancel-flag (,cf ,ctxt)
-             (let ((,gate  (once ,cust ,cf ,ctxt)))
-               ,@(mapcar #`(,@(um:take 2 a1) ,gate ,@(um:drop 3 a1)) msgs)))
+          `(let ((,gate  (once ,cust)))
+             ,@(mapcar #`(,@(um:take 2 a1) ,gate ,@(um:drop 3 a1)) msgs))
         ;; else
         (let ((tags  (mapcar (lambda (x)
                                (declare (ignore x))
                                (gensym (string :tag)))
                              msgs)))
-          `(with-cancel-flag (,cf ,ctxt)
-             (actors (,@(mapcar #`(,a1 (tag  ,gate)) tags)
+          `(actors (,@(mapcar #`(,a1 (tag  ,gate)) tags)
                       (,gate  (create
-                               (running-one-of-beh ,cf ,ctxt ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
+                               (running-one-of-beh ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
                                )))
-               ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags)))
+               ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags))
           ))
       )))
 #|
@@ -549,12 +506,11 @@ Example:
                            (declare (ignore x))
                            (gensym (string :tag)))
                          msgs)))
-      `(with-cancel-flag (,cf ,ctxt)
-         (actors (,@(mapcar #`(,a1 (tag ,gate)) tags)
-                  (,gate  (create
-                           (running-alt-beh ,cf ,ctxt ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
-                           )))
-           ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags)))
+      `(actors (,@(mapcar #`(,a1 (tag ,gate)) tags)
+                (,gate  (create
+                         (running-alt-beh ,@(mapcar #2`(cons ,a1 ,a2) tags custs))
+                         )))
+         ,@(mapcar #2`(,@(um:take 2 a1) ,a2 ,@(um:drop 3 a1)) msgs tags))
       )))
 #|
 Example
@@ -643,7 +599,7 @@ Example
                                 (send-all-to cust msgs))
                                
                                (msg
-                                (become (apply #'waiting-beh (stash-msg msg) msgs)))
+                                (become (apply #'waiting-beh msg msgs)))
                                )))
                         (waiting-beh)))))
     (send-after dt tag-dt) ;; won't fire until we exit beh

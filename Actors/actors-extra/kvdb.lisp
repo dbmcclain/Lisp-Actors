@@ -132,14 +132,14 @@
     (become (fwd-beh kvdb))
     (send-all-to kvdb msgs))
    (msg
-    (become (fut-kvdb-handler tag (cons (stash-msg msg) msgs))))
+    (become (fut-kvdb-handler tag (cons msg msgs))))
    ))
 
 (defun lazy-fut-kvdb-handler-beh (path)
   (lambda* msg
     (let ((tag (tag self)))
       (send kvdb-orchestrator tag :make-kvdb path)
-      (become (fut-kvdb-handler tag path (list (stash-msg msg))))
+      (become (fut-kvdb-handler tag path (list msg)))
       )))
 
 (deflex* kvdb

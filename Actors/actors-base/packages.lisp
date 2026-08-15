@@ -162,7 +162,6 @@ THE SOFTWARE.
    #:once
    #:send-to-all
    #:send-all-to
-   #:stash-msg
    #:race
    #:one-of
    #:alt-with-nak
@@ -353,13 +352,6 @@ THE SOFTWARE.
    #:check-timeout
    #:timeout-checked-service
    #:checked-service
-   #:cancelled?
-   #:cancel
-   #:cancel-flag
-   #:make-cancel-flag
-   #:with-cancel-flag
-   #:with-context
-   #:return-tag
 
    #:with-ironclad-safety
    ))

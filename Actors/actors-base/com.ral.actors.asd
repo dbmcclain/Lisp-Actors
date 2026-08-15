@@ -37,7 +37,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actor-state")
                 (:file "actor-types")
                 (:file "globals")
-                (:file "cancellable")
                 (:file "macros")
                 (:file "actors-mstr")
                 (:file "anti-collision")

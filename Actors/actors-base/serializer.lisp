@@ -233,9 +233,6 @@ prefixed by our unique SELF identity"
      (send* cust self msg))
    ))
 
-(defun stash-msg (msg)
-  (cons *self-context* msg))
-
 ;; ---------------------
 
 (defun serializer (svc)
@@ -249,35 +246,30 @@ prefixed by our unique SELF identity"
             (without-contention
              (let ((tag  (tag self)))
                (send* svc tag msg)
-               (become (busy-serializer-beh cust self-context tag nil))
+               (become (busy-serializer-beh cust tag nil))
                )))
            )))
 
-       (busy-serializer-beh (cur-cust ctxt tag queue)
+       (busy-serializer-beh (cur-cust tag queue)
          ;; Busy state - new arriving messages get enqueued until we receive
          ;; a message through our interposed customer TAG.
          (with-contention-free-semantics
           (alambda
            ((atag . reply) / (eq atag tag)
             (without-contention
-             (with-context ctxt
-               (send* cur-cust reply))
-             (prog ((q queue))
-               AGAIN
+             (send* cur-cust reply)
+             (let ((q queue))
                (if (emptyq? q)
                    (become (serializer-beh))
-                 (let+ ((:mvl ((next-cust *self-context* . next-msg) &optional new-queue _) (popq q)))
-                   (when (cancelled?)
-                     (setf q new-queue)
-                     (go AGAIN))
-                   (let ((new-tag  (tag self)))
-                     (send* svc new-tag next-msg)
-                     (become (busy-serializer-beh next-cust self-context new-tag new-queue))
-                     ))))))
+                 (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq q))
+                        (new-tag  (tag self)))
+                   (send* svc new-tag next-msg)
+                   (become (busy-serializer-beh next-cust new-tag new-queue))
+                   )))))
            ((cust . msg)
             (without-contention
-             (become (busy-serializer-beh cur-cust ctxt tag
-                                          (addq queue (cons cust (stash-msg msg)) )))))
+             (become (busy-serializer-beh cur-cust tag
+                                          (addq queue (cons cust msg) )))))
            ))) )
     (create (serializer-beh))
     ))
