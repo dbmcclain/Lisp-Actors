@@ -233,6 +233,13 @@ prefixed by our unique SELF identity"
      (send* cust self msg))
    ))
 
+(defun once-tag (cust)
+  (create
+   (lambda* msg
+     (send* cust self msg)
+     (become-sink))
+   ))
+
 ;; ---------------------
 
 (defun serializer (svc)
@@ -244,7 +251,7 @@ prefixed by our unique SELF identity"
           (alambda
            ((cust . msg)
             (without-contention
-             (let ((tag  (tag self)))
+             (let ((tag  (once-tag self)))
                (send* svc tag msg)
                (become (busy-serializer-beh cust tag nil))
                )))
@@ -262,7 +269,7 @@ prefixed by our unique SELF identity"
                (if (emptyq? q)
                    (become (serializer-beh))
                  (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq q))
-                        (new-tag  (tag self)))
+                        (new-tag  (once-tag self)))
                    (send* svc new-tag next-msg)
                    (become (busy-serializer-beh next-cust new-tag new-queue))
                    )))))

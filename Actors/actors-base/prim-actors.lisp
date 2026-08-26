@@ -448,7 +448,7 @@ customer, just one time."
   ;; are left dangling. If that isn't what you want, then see
   ;; ALT-WITH-NAK below.
   ;;
-  (um:with-unique-names (cf ctxt gate)
+  (um:with-unique-names (gate)
     (let* ((custs (mapcar #'third msgs))
            (cust  (car custs)))
       (if (every (um:curry #'equalp cust) custs)
@@ -500,7 +500,7 @@ Example:
 (defmacro alt-with-nak (&rest msgs)
   ;; Allow only the first responder, pass along its response to its customer,
   ;; and pass along :NOK to all other customers in this race.
-  (um:with-unique-names (cf ctxt gate)
+  (um:with-unique-names (gate)
     (let ((custs (mapcar #'third msgs))
           (tags  (mapcar (lambda (x)
                            (declare (ignore x))
@@ -561,9 +561,8 @@ Example
 
 (defun select (cust &rest services)
   ;; Obtain answer from one of the services, or a timeout.
-  (with-cancel-flag (cf ctxt)
-    (let ((gate (timed-once-gate cust cf ctxt)))
-      (send-to-all services gate))))
+  (let ((gate (timed-once-gate cust)))
+    (send-to-all services gate)))
 
 (defun expect (actor cust &rest msg)
   ;; Expect an answer from actor being sent to cust, or timeout.

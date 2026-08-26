@@ -170,6 +170,7 @@ THE SOFTWARE.
    #:fwd
    #:label
    #:tag
+   #:once-tag
    #:rate-limited-gate
    #:par
 
